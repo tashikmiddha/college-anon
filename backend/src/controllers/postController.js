@@ -76,10 +76,10 @@ export const createPost = async (req, res) => {
       tags: tags || [],
       image: imageData,
       // Auto-approve if moderation is disabled, or if content passes moderation check
-      // moderationStatus: isModerationEnabled ? (moderation.flagged ? 'flagged' : 'approved') : 'approved',
-      moderationStatus: 'approved',
-      // moderationReason: moderation.flagged ? moderation.reason : ''
-      moderationReason:''
+      moderationStatus: isModerationEnabled ? (moderation.flagged ? 'flagged' : 'approved') : 'approved',
+      // moderationStatus: 'approved',
+      moderationReason: moderation.flagged ? moderation.reason : ''
+      // moderationReason:''
 
     });
 

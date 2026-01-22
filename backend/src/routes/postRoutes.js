@@ -32,9 +32,9 @@ const upload = multer({
   }
 });
 
-// Public routes - no authentication required
-router.get('/', getPosts);
-router.get('/:id', getPost);
+// Protected routes - authentication required for getting posts (to filter by college)
+router.get('/', protect, getPosts);
+router.get('/:id', protect, getPost);
 
 // Image upload endpoint
 router.post('/upload', protect, upload.single('image'), uploadImage);

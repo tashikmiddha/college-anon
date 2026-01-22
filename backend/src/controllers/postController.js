@@ -55,6 +55,30 @@ export const createPost = async (req, res) => {
     // Parse image data if it's a string
     let imageData = { url: '', publicId: '' };
     if (image) {
+      // Check if user is premium for image uploads
+      const isPremium = req.user.isPremium && 
+        (!req.user.premiumExpiresAt || new Date() < req.user.premiumExpiresAt);
+      
+      if (!isPremium) {
+        return res.status(403).json({ 
+          message: 'Image uploads are a premium feature. Upgrade to premium to upload images.',
+          requiresPremium: true
+        });
+      }
+
+      // Check image upload quota
+      const imageLimit = req.user.premiumLimits?.imageUploads || 10;
+      const imageUsed = req.user.premiumUsage?.imageUploads || 0;
+      
+      if (imageUsed >= imageLimit) {
+        return res.status(403).json({ 
+          message: 'You have reached your image upload limit',
+          current: imageUsed,
+          limit: imageLimit,
+          requiresPremium: true
+        });
+      }
+
       try {
         if (typeof image === 'string') {
           imageData = JSON.parse(image);
@@ -68,6 +92,7 @@ export const createPost = async (req, res) => {
 
     const post = await Post.create({
       author: req.user._id,
+      college: req.user.college,
       anonId: req.user.anonId,
       displayName: req.user.displayName,
       title: sanitizedTitle,
@@ -82,6 +107,14 @@ export const createPost = async (req, res) => {
       // moderationReason:''
 
     });
+
+    // Increment image usage if image was uploaded
+    if (imageData.url) {
+      const User = (await import('../models/User.js')).default;
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: { 'premiumUsage.imageUploads': 1 }
+      });
+    }
 
     const createdPost = await Post.findById(post._id).populate('author', 'anonId displayName');
 
@@ -115,6 +148,15 @@ export const getPosts = async (req, res) => {
       ];
     }
 
+    // College filtering: non-admin users can only see posts from their college
+    // Admins see all posts
+    if (req.user && !req.user.isAdmin) {
+      filter.college = req.user.college;
+    } else if (req.query.college) {
+      // Allow filtering by college if specified
+      filter.college = req.query.college;
+    }
+
     // Only show approved posts for public
     if (req.query.moderation !== 'true') {
       filter.moderationStatus = 'approved';
@@ -144,7 +186,7 @@ export const getPosts = async (req, res) => {
 
 // @desc    Get single post
 // @route   GET /api/posts/:id
-// @access  Public
+// @access  Private (college-restricted)
 export const getPost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -152,6 +194,15 @@ export const getPost = async (req, res) => {
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if user has access to this post (college-wise division)
+    // Admins can view all posts, regular users can only view their college's posts
+    if (!req.user.isAdmin && post.college !== req.user.college) {
+      return res.status(403).json({ 
+        message: 'You do not have permission to view this post',
+        college: post.college
+      });
     }
 
     // Increment view count
@@ -233,13 +284,22 @@ export const deletePost = async (req, res) => {
 
 // @desc    Like/Unlike post
 // @route   POST /api/posts/:id/like
-// @access  Private
+// @access  Private (college-restricted)
 export const likePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if user has access to this post (college-wise division)
+    // Admins can like any post, regular users can only like their college's posts
+    if (!req.user.isAdmin && post.college !== req.user.college) {
+      return res.status(403).json({ 
+        message: 'You can only like posts from your college',
+        college: post.college
+      });
     }
 
     const likeIndex = post.likes.indexOf(req.user._id);
@@ -280,7 +340,7 @@ export const getMyPosts = async (req, res) => {
 
 // @desc    Report post
 // @route   POST /api/posts/:id/report
-// @access  Private
+// @access  Private (college-restricted)
 export const reportPost = async (req, res) => {
   try {
     const { reason, description } = req.body;
@@ -288,6 +348,15 @@ export const reportPost = async (req, res) => {
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check if user has access to this post (college-wise division)
+    // Admins can report any post, regular users can only report their college's posts
+    if (!req.user.isAdmin && post.college !== req.user.college) {
+      return res.status(403).json({ 
+        message: 'You can only report posts from your college',
+        college: post.college
+      });
     }
 
     // Check if already reported

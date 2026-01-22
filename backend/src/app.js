@@ -9,6 +9,7 @@ import { apiLimiter } from './middleware/rateLimiter.js';
 import authRoutes from './routes/authRoutes.js';
 import postRoutes from './routes/postRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import competitionRoutes from './routes/competitionRoutes.js';
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/competitions', competitionRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 404 handler

@@ -47,6 +47,14 @@ export const fetchPost = createAsyncThunk(
       const response = await postAPI.getPost(id);
       return response;
     } catch (error) {
+      // Check if this is an access denied error (college restriction)
+      if (error.accessDenied) {
+        return rejectWithValue({
+          message: error.message,
+          accessDenied: true,
+          college: error.college
+        });
+      }
       return rejectWithValue(error.message);
     }
   }

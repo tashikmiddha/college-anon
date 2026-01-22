@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchPost, likePost, deletePost, clearCurrentPost, clearMessage, reportPost } from '../features/posts/postSlice';
-import { FiHeart, FiFlag, FiEdit, FiTrash2, FiArrowLeft, FiImage, FiX } from 'react-icons/fi';
+import { FiHeart, FiFlag, FiEdit, FiTrash2, FiArrowLeft, FiImage, FiX, FiLock, FiEyeOff } from 'react-icons/fi';
 
 const categoryColors = {
   general: 'bg-gray-100 text-gray-800',
@@ -18,12 +18,13 @@ const PostDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { currentPost: post, isLoading, isError, message, isSuccess } = useSelector((state) => state.posts);
+  const { currentPost: post, isLoading, isError, message, isSuccess, error } = useSelector((state) => state.posts);
   const { user } = useSelector((state) => state.auth);
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState('spam');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -31,8 +32,16 @@ const PostDetail = () => {
       navigate('/login');
       return;
     }
+
+    // Reset access denied state
+    setAccessDenied(false);
     
-    dispatch(fetchPost(id));
+    dispatch(fetchPost(id)).then((result) => {
+      // Check if access was denied (403 response)
+      if (result.error && result.error.message && result.error.message.includes('permission')) {
+        setAccessDenied(true);
+      }
+    });
 
     return () => {
       dispatch(clearCurrentPost());
@@ -46,10 +55,60 @@ const PostDetail = () => {
     }
   }, [isSuccess, message, navigate]);
 
+  // Check if user can interact with this post
+  const canInteract = user && (user.isAdmin || (post && post.college === user.college));
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="container-custom py-12">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-gray-600 hover:text-primary-600 mb-6"
+        >
+          <FiArrowLeft className="mr-2" />
+          Back
+        </button>
+
+        <div className="card text-center py-12">
+          <div className="flex justify-center mb-6">
+            <div className="bg-amber-100 p-4 rounded-full">
+              <FiLock className="w-12 h-12 text-amber-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Post from Another College</h2>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            This post is from <strong>{post?.college || 'a different college'}</strong>. 
+            You can only view posts from your own college ({user?.college}).
+          </p>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="btn btn-primary"
+            >
+              Back to Home
+            </button>
+            {user?.isAdmin && (
+              <button
+                onClick={() => {
+                  // Allow admin to bypass the restriction
+                  setAccessDenied(false);
+                  dispatch(fetchPost(id));
+                }}
+                className="btn btn-secondary"
+              >
+                View Anyway (Admin)
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -78,6 +137,10 @@ const PostDetail = () => {
 
   const handleLike = () => {
     if (!user) return;
+    if (!canInteract) {
+      alert(`You can only like posts from your college (${user.college})`);
+      return;
+    }
     dispatch(likePost(post._id));
   };
 
@@ -89,6 +152,10 @@ const PostDetail = () => {
 
   const handleReport = () => {
     if (!user) return;
+    if (!canInteract) {
+      alert(`You can only report posts from your college (${user.college})`);
+      return;
+    }
     dispatch(reportPost({ id: post._id, reportData: { reason: reportReason } }));
     setShowReport(false);
   };
@@ -127,8 +194,27 @@ const PostDetail = () => {
           <span>•</span>
           <span>{post.anonId}</span>
           <span>•</span>
+          <span className="flex items-center">
+            <FiEyeOff className="w-4 h-4 mr-1" />
+            {post.college}
+          </span>
+          <span>•</span>
           <span>{formatDate(post.createdAt)}</span>
         </div>
+
+        {/* College access notice for non-college posts */}
+        {!canInteract && user && !user.isAdmin && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start">
+            <FiLock className="w-5 h-5 text-amber-600 mr-3 mt-0.5" />
+            <div>
+              <p className="text-amber-800 font-medium">Viewing post from another college</p>
+              <p className="text-amber-700 text-sm mt-1">
+                You can view this post but cannot like, comment, or report it. 
+                Only posts from <strong>{user.college}</strong> can be interacted with.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="prose max-w-none text-gray-800 whitespace-pre-wrap">
           {post.content}

@@ -6,6 +6,11 @@ const postSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  college: {
+    type: String,
+    required: true,
+    index: true
+  },
   anonId: {
     type: String,
     required: true

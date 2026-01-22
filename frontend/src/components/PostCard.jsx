@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiHeart, FiMessageSquare, FiFlag, FiClock, FiImage } from 'react-icons/fi';
+import { FiHeart, FiMessageSquare, FiFlag, FiClock, FiImage, FiLock } from 'react-icons/fi';
 import { likePost, reportPost } from '../features/posts/postSlice';
 import { useState } from 'react';
 
@@ -21,13 +21,24 @@ const PostCard = ({ post }) => {
   const [reportReason, setReportReason] = useState('spam');
   const [imageError, setImageError] = useState(false);
 
+  // Check if user can interact with this post (same college or admin)
+  const canInteract = user && (user.isAdmin || post.college === user.college);
+
   const handleLike = () => {
     if (!user) return;
+    if (!canInteract) {
+      alert(`You can only like posts from your college (${user.college})`);
+      return;
+    }
     dispatch(likePost(post._id));
   };
 
   const handleReport = () => {
     if (!user) return;
+    if (!canInteract) {
+      alert(`You can only report posts from your college (${user.college})`);
+      return;
+    }
     dispatch(reportPost({ id: post._id, reportData: { reason: reportReason } }));
     setShowReport(false);
   };
@@ -61,9 +72,10 @@ const PostCard = ({ post }) => {
   };
 
   const hasImage = post.image && post.image.url && !imageError;
+  const isRestricted = user && !canInteract;
 
   return (
-    <div className="card hover:shadow-lg transition-shadow">
+    <div className={`card hover:shadow-lg transition-shadow ${isRestricted ? 'opacity-75' : ''}`}>
       {hasImage && (
         <Link to={`/post/${post._id}`} className="block -mx-6 -mt-6 mb-4">
           <div className="relative h-48 w-full overflow-hidden">
@@ -121,18 +133,30 @@ const PostCard = ({ post }) => {
         )}
       </div>
 
+      {/* College info bar */}
+      {isRestricted && (
+        <div className="mt-3 py-2 px-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center text-amber-700 text-sm">
+          <FiLock className="w-4 h-4 mr-2" />
+          <span>Post from <strong>{post.college}</strong> - View only</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mt-4 pt-4 border-t">
         <div className="flex items-center space-x-4">
           <button
             onClick={handleLike}
             disabled={!user}
-            className={`flex items-center space-x-1 text-sm ${user ? 'hover:text-red-500' : 'cursor-not-allowed opacity-50'}`}
+            className={`flex items-center space-x-1 text-sm ${user && canInteract ? 'hover:text-red-500' : 'cursor-not-allowed opacity-50'}`}
+            title={!canInteract ? `Only for ${user?.college} users` : ''}
           >
             <FiHeart className={post.isLiked ? 'fill-red-500 text-red-500' : ''} />
             <span>{post.likeCount || 0}</span>
           </button>
 
-          <Link to={`/post/${post._id}`} className="flex items-center space-x-1 text-sm text-gray-600 hover:text-primary-600">
+          <Link 
+            to={`/post/${post._id}`} 
+            className={`flex items-center space-x-1 text-sm ${canInteract ? 'text-gray-600 hover:text-primary-600' : 'text-gray-400 cursor-not-allowed'}`}
+          >
             <FiMessageSquare />
             <span>{post.commentCount || 0}</span>
           </Link>
@@ -145,9 +169,16 @@ const PostCard = ({ post }) => {
 
         <div className="relative">
           <button
-            onClick={() => setShowReport(!showReport)}
-            className="text-gray-400 hover:text-red-500"
-            title="Report"
+            onClick={() => {
+              if (!canInteract) {
+                alert(`You can only report posts from your college (${user?.college})`);
+                return;
+              }
+              setShowReport(!showReport);
+            }}
+            className={`${canInteract ? 'text-gray-400 hover:text-red-500' : 'text-gray-300 cursor-not-allowed'}`}
+            title={!canInteract ? `Only for ${user?.college} users` : 'Report'}
+            disabled={!canInteract}
           >
             <FiFlag />
           </button>

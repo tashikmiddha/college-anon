@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, clearError } from '../features/auth/authSlice';
 
@@ -10,20 +10,36 @@ const LoginForm = () => {
   });
 
   const [localError, setLocalError] = useState('');
-  
+  const [searchParams] = useSearchParams();
+  const navigationAttempted = useRef(false);
+  const location = useLocation();
+
   const { email, password } = formData;
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isLoading, isError, message, isSuccess } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    if (isSuccess) {
-      navigate('/');
+  const handleNavigation = useCallback(() => {
+    // Only navigate if: success, not already navigated, and not already on home page
+    if (isSuccess && !navigationAttempted.current && location.pathname !== '/') {
+      navigationAttempted.current = true;
+      // Use replace to avoid history stack buildup
+      navigate('/', { replace: true });
     }
+  }, [isSuccess, navigate, location.pathname]);
+
+  useEffect(() => {
+    handleNavigation();
+
     if (isError && message) {
       setLocalError(message);
     }
-  }, [isError, isSuccess, message, navigate]);
+
+    // Check if redirected with verification required
+    if (searchParams.get('verify') === 'true') {
+      setLocalError('Please verify your email before accessing the website. Check your inbox for the verification link.');
+    }
+  }, [isError, isSuccess, message, searchParams, handleNavigation]);
 
   const handleChange = (e) => {
     setFormData({
@@ -41,6 +57,8 @@ const LoginForm = () => {
     e.preventDefault();
     setLocalError('');
     dispatch(clearError());
+    // Reset navigation ref on new submit
+    navigationAttempted.current = false;
     dispatch(login({ email, password }));
   };
 
@@ -83,6 +101,12 @@ const LoginForm = () => {
             placeholder="••••••••"
             required
           />
+        </div>
+
+        <div className="flex justify-end">
+          <Link to="/forgot-password" className="text-sm text-primary-600 hover:underline">
+            Forgot Password?
+          </Link>
         </div>
 
         <button

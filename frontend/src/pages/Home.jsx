@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { fetchPosts, clearError } from '../features/posts/postSlice';
 import PostCard from '../components/PostCard';
 
@@ -22,8 +23,9 @@ const sortOptions = [
 
 const Home = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { posts, isLoading, totalPages, page, isError, error } = useSelector((state) => state.posts);
-  const { user } = useSelector((state) => state.auth);
+  const { user, isAuthenticated, isLoading: authLoading } = useSelector((state) => state.auth);
   const [category, setCategory] = useState('');
   const [sort, setSort] = useState('-createdAt');
   const [search, setSearch] = useState('');
@@ -36,10 +38,18 @@ const Home = () => {
   });
 
   useEffect(() => {
+    // Check if user is authenticated, if not redirect to login
+    if (!isAuthenticated && !user) {
+      navigate('/login');
+      return;
+    }
+    
+    // Wait for auth loading to complete
+    if (authLoading) return;
+    
     // Fetch posts for the home page
-    // If user is logged in and OpenAI moderation is enabled, also fetch their pending posts
     dispatch(fetchPosts(getParams()));
-  }, [dispatch, page, category, sort, search, user]);
+  }, [dispatch, page, category, sort, search, user, isAuthenticated, navigate, authLoading]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -59,6 +69,17 @@ const Home = () => {
     }
   };
 
+  // Show loading while checking auth
+  if (!isAuthenticated && !user) {
+    return (
+      <div className="container-custom py-8">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-custom py-8">
       {/* Hero Section */}
@@ -67,8 +88,22 @@ const Home = () => {
           Welcome to CollegeAnon
         </h1>
         <p className="text-gray-600">
-          Share your thoughts anonymously. Your identity is protected.
+          {user?.college ? `Posts from ${user.college}` : 'Share your thoughts anonymously. Your identity is protected.'}
         </p>
+        {user?.isAdmin && (
+          <div className="mt-2 inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+            Admin Mode - Viewing all posts
+          </div>
+        )}
+      </div>
+
+      {/* College Badge */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-primary-50 border border-primary-200 px-6 py-3 rounded-full flex items-center">
+          <span className="text-primary-600 font-medium">
+            {user?.isAdmin ? '🌐 All Colleges' : `📚 Your College: ${user?.college || 'Not set'}`}
+          </span>
+        </div>
       </div>
 
       {/* Search and Filters */}

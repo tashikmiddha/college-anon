@@ -3,7 +3,8 @@ import { useSelector } from 'react-redux';
 import { Link, Navigate } from 'react-router-dom';
 import { adminAPI } from '../features/admin/adminAPI';
 import PostCard from '../components/PostCard';
-import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock } from 'react-icons/fi';
+import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock, FiStar, FiEdit2 } from 'react-icons/fi';
+import { allColleges } from '../utils/colleges';
 
 const Admin = () => {
   const { user } = useSelector((state) => state.auth);
@@ -12,38 +13,64 @@ const Admin = () => {
   const [posts, setPosts] = useState([]);
   const [reports, setReports] = useState([]);
   const [users, setUsers] = useState([]);
+  const [premiumUsers, setPremiumUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [blockReason, setBlockReason] = useState('');
+  const [premiumData, setPremiumData] = useState({
+    imageUploads: 10,
+    competitions: 5,
+    durationDays: 30
+  });
   const [postFilter, setPostFilter] = useState('all');
+  const [collegeFilter, setCollegeFilter] = useState('');
+  const [premiumStatusFilter, setPremiumStatusFilter] = useState('');
 
   useEffect(() => {
     if (user?.isAdmin) {
       fetchAdminData();
     }
-  }, [user, activeTab, postFilter]);
+  }, [user, activeTab, postFilter, collegeFilter, premiumStatusFilter]);
 
   const fetchAdminData = async () => {
     setLoading(true);
     try {
       switch (activeTab) {
         case 'stats':
-          const statsData = await adminAPI.getStats();
+          const statsData = await adminAPI.getStats({ college: collegeFilter || undefined });
           setStats(statsData);
           break;
         case 'posts':
-          const filter = postFilter === 'all' ? {} : { status: postFilter };
+          const filter = {};
+          if (postFilter !== 'all') {
+            filter.status = postFilter;
+          }
+          if (collegeFilter) {
+            filter.college = collegeFilter;
+          }
           const postsData = await adminAPI.getAllPosts(filter);
           setPosts(postsData.posts);
           break;
         case 'reports':
-          const reportsData = await adminAPI.getReports();
+          const reportsData = await adminAPI.getReports({ college: collegeFilter || undefined });
           setReports(reportsData);
           break;
         case 'users':
-          const usersData = await adminAPI.getUsers();
+          const usersData = await adminAPI.getUsers({ college: collegeFilter || undefined });
           setUsers(usersData);
+          break;
+        case 'premium':
+          const premiumParams = {};
+          if (collegeFilter) {
+            premiumParams.college = collegeFilter;
+          }
+          if (premiumStatusFilter) {
+            premiumParams.status = premiumStatusFilter;
+          }
+          const premiumData = await adminAPI.getPremiumUsers(premiumParams);
+          setPremiumUsers(premiumData);
           break;
         default:
           break;
@@ -128,6 +155,50 @@ const Admin = () => {
     setShowBlockModal(true);
   };
 
+  const openPremiumModal = (user) => {
+    setSelectedUser(user);
+    setPremiumData({
+      imageUploads: user.premiumLimits?.imageUploads || 10,
+      competitions: user.premiumLimits?.competitions || 5,
+      durationDays: 30
+    });
+    setShowPremiumModal(true);
+  };
+
+  const handleGrantPremium = async () => {
+    if (!selectedUser) return;
+    try {
+      await adminAPI.grantPremium(selectedUser._id, premiumData);
+      setShowPremiumModal(false);
+      setSelectedUser(null);
+      fetchAdminData();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const handleRevokePremium = async (userId) => {
+    if (window.confirm('Are you sure you want to revoke premium access from this user?')) {
+      try {
+        await adminAPI.revokePremium(userId);
+        fetchAdminData();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
+  const handleResetUsage = async (userId) => {
+    if (window.confirm('Reset premium usage for this user?')) {
+      try {
+        await adminAPI.resetPremiumUsage(userId);
+        fetchAdminData();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   if (!user || !user.isAdmin) {
     return <Navigate to="/" />;
   }
@@ -137,6 +208,7 @@ const Admin = () => {
     { id: 'posts', label: 'Posts', icon: FiCheck },
     { id: 'reports', label: 'Reports', icon: FiFlag },
     { id: 'users', label: 'Users', icon: FiUsers },
+    { id: 'premium', label: 'Premium', icon: FiStar },
   ];
 
   return (
@@ -187,6 +259,78 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Premium Modal */}
+      {showPremiumModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Grant Premium Access</h3>
+            <p className="text-gray-600 mb-4">
+              Granting premium to: <strong>{selectedUser?.anonId}</strong>
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Image Upload Limit
+                </label>
+                <input
+                  type="number"
+                  value={premiumData.imageUploads}
+                  onChange={(e) => setPremiumData({ ...premiumData, imageUploads: parseInt(e.target.value) })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  min="1"
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Competitions Limit
+                </label>
+                <input
+                  type="number"
+                  value={premiumData.competitions}
+                  onChange={(e) => setPremiumData({ ...premiumData, competitions: parseInt(e.target.value) })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  min="1"
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-1 text-sm font-medium text-gray-700">
+                  Duration (days)
+                </label>
+                <input
+                  type="number"
+                  value={premiumData.durationDays}
+                  onChange={(e) => setPremiumData({ ...premiumData, durationDays: parseInt(e.target.value) })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                onClick={() => {
+                  setShowPremiumModal(false);
+                  setSelectedUser(null);
+                }}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGrantPremium}
+                className="btn bg-yellow-500 text-white hover:bg-yellow-600"
+              >
+                <FiStar className="mr-1" />
+                Grant Premium
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex space-x-4 mb-8 border-b overflow-x-auto">
         {tabs.map((tab) => (
@@ -203,6 +347,59 @@ const Admin = () => {
             <span>{tab.label}</span>
           </button>
         ))}
+      </div>
+
+      {/* College Filter */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by College
+            </label>
+            <select
+              value={collegeFilter}
+              onChange={(e) => setCollegeFilter(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            >
+              <option value="">All Colleges</option>
+              {allColleges.map((college) => (
+                <option key={college} value={college}>
+                  {college}
+                </option>
+              ))}
+            </select>
+          </div>
+          {activeTab === 'premium' && (
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Premium Status
+              </label>
+              <select
+                value={premiumStatusFilter}
+                onChange={(e) => setPremiumStatusFilter(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+          )}
+          {(collegeFilter || premiumStatusFilter) && (
+            <div className="flex items-center">
+              <button
+                onClick={() => {
+                  setCollegeFilter('');
+                  setPremiumStatusFilter('');
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900 flex items-center"
+              >
+                <FiX className="w-4 h-4 mr-1" />
+                Clear Filter
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -387,8 +584,10 @@ const Admin = () => {
                     <tr className="bg-gray-100">
                       <th className="text-left p-3">Anon ID</th>
                       <th className="text-left p-3">Email</th>
+                      <th className="text-left p-3">College</th>
                       <th className="text-left p-3">Status</th>
                       <th className="text-left p-3">Role</th>
+                      <th className="text-left p-3">Premium</th>
                       <th className="text-left p-3">Actions</th>
                     </tr>
                   </thead>
@@ -401,7 +600,8 @@ const Admin = () => {
                             <p className="text-xs text-gray-500">{u.displayName}</p>
                           </div>
                         </td>
-                        <td className="p-3 text-sm">{u.collegeEmail}</td>
+                        <td className="p-3 text-sm">{u.email}</td>
+                        <td className="p-3 text-sm">{u.college || 'N/A'}</td>
                         <td className="p-3">
                           {u.isBlocked ? (
                             <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm flex items-center gap-1 w-fit">
@@ -422,6 +622,15 @@ const Admin = () => {
                             <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm">
                               User
                             </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {u.isPremium ? (
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm flex items-center gap-1">
+                              <FiStar className="w-3 h-3" /> Premium
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
                           )}
                         </td>
                         <td className="p-3">
@@ -458,6 +667,99 @@ const Admin = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Premium Tab */}
+          {activeTab === 'premium' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Premium Users</h2>
+                <p className="text-sm text-gray-600">
+                  Click on a user to grant premium access
+                </p>
+              </div>
+              {premiumUsers.length === 0 ? (
+                <p className="text-gray-600">No premium users found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="text-left p-3">Anon ID</th>
+                        <th className="text-left p-3">Email</th>
+                        <th className="text-left p-3">College</th>
+                        <th className="text-left p-3">Status</th>
+                        <th className="text-left p-3">Images</th>
+                        <th className="text-left p-3">Competitions</th>
+                        <th className="text-left p-3">Expires</th>
+                        <th className="text-left p-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {premiumUsers.map((u) => {
+                        const isExpired = u.premiumExpiresAt && new Date(u.premiumExpiresAt) <= new Date();
+                        return (
+                          <tr key={u._id} className={`border-b ${isExpired ? 'bg-orange-50' : ''}`}>
+                            <td className="p-3">
+                              <div>
+                                <p className="font-medium">{u.anonId}</p>
+                                <p className="text-xs text-gray-500">{u.displayName}</p>
+                              </div>
+                            </td>
+                            <td className="p-3 text-sm">{u.email}</td>
+                            <td className="p-3 text-sm">{u.college || 'N/A'}</td>
+                            <td className="p-3">
+                              {isExpired ? (
+                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm">
+                                  Expired
+                                </span>
+                              ) : (
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm flex items-center gap-1">
+                                  <FiStar className="w-3 h-3" /> Active
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-sm">
+                              {u.premiumUsage?.imageUploads || 0} / {u.premiumLimits?.imageUploads || 10}
+                            </td>
+                            <td className="p-3 text-sm">
+                              {u.premiumUsage?.competitions || 0} / {u.premiumLimits?.competitions || 5}
+                            </td>
+                            <td className="p-3 text-sm">
+                              {u.premiumExpiresAt 
+                                ? new Date(u.premiumExpiresAt).toLocaleDateString()
+                                : '-'}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => openPremiumModal(u)}
+                                  className="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-sm flex items-center gap-1"
+                                >
+                                  <FiEdit2 /> Edit
+                                </button>
+                                <button
+                                  onClick={() => handleResetUsage(u._id)}
+                                  className="btn bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm"
+                                >
+                                  Reset
+                                </button>
+                                <button
+                                  onClick={() => handleRevokePremium(u._id)}
+                                  className="btn bg-red-100 text-red-700 hover:bg-red-200 text-sm"
+                                >
+                                  Revoke
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </>

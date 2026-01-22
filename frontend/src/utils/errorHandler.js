@@ -78,6 +78,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Retry a function with exponential backoff
+ * Only retries on network/server errors, not on client errors (4xx)
  */
 export const withRetry = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
@@ -87,19 +88,34 @@ export const withRetry = async (fn, maxRetries = 3, baseDelay = 1000) => {
       return await fn();
     } catch (error) {
       lastError = error;
-      const errorInfo = classifyError(error);
 
-      // Don't retry on auth errors or validation errors
-      if (errorInfo.type === ERROR_TYPES.AUTH_ERROR || 
-          errorInfo.type === ERROR_TYPES.VALIDATION_ERROR) {
-        throw error;
+      // Check if we have an HTTP response with status
+      if (error.response?.status) {
+        const status = error.response.status;
+        
+        // Don't retry on client errors (4xx) - these are user errors, not server issues
+        // 400: Bad Request (invalid credentials, validation errors)
+        // 401: Unauthorized (invalid token, not logged in)
+        // 403: Forbidden (permission denied)
+        // 404: Not Found
+        // 409: Conflict (duplicate, etc.)
+        // 422: Unprocessable Entity
+        if (status >= 400 && status < 500) {
+          throw error;
+        }
       }
 
-      // Don't retry on client errors (4xx)
-      if (error.response?.status >= 400 && error.response?.status < 500) {
-        throw error;
+      // Check for network errors (no response object)
+      if (!error.response) {
+        const errorInfo = classifyError(error);
+        
+        // Don't retry on auth errors
+        if (errorInfo.type === ERROR_TYPES.AUTH_ERROR) {
+          throw error;
+        }
       }
 
+      // Only retry on server errors (5xx) or actual network issues
       // Calculate exponential backoff delay
       const delay = baseDelay * Math.pow(2, attempt - 1);
       console.log(`Attempt ${attempt} failed. Retrying in ${delay}ms...`);

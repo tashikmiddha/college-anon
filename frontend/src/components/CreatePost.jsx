@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { createPost, uploadImage, clearMessage, clearUploadedImage, fetchPosts } from '../features/posts/postSlice';
-import { FiImage, FiX, FiUpload, FiTrash2 } from 'react-icons/fi';
+import { FiImage, FiX, FiUpload, FiTrash2, FiStar, FiLock } from 'react-icons/fi';
 
 const categories = [
   { value: 'general', label: 'General' },
@@ -31,7 +31,14 @@ const CreatePost = () => {
   const { title, content, category, tags } = formData;
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
   const { isLoading, isError, isSuccess, message, uploadProgress, uploadedImage } = useSelector((state) => state.posts);
+
+  // Check premium status
+  const isPremium = user?.isPremium && new Date(user?.premiumExpiresAt) > new Date();
+  const imageLimit = user?.premiumLimits?.imageUploads || 0;
+  const imageUsed = user?.premiumUsage?.imageUploads || 0;
+  const hasImageQuota = imageUsed < imageLimit;
 
   useEffect(() => {
     if (isError) {
@@ -208,70 +215,99 @@ const CreatePost = () => {
         {/* Image Upload Section */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Image (optional)
+            Image {isPremium ? '(Premium)' : ''}
           </label>
           
-          {!previewUrl ? (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
-              <input
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                onChange={handleFileChange}
-                className="hidden"
-                id="image-upload"
-                disabled={isLoading}
-              />
-              <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
-                <FiImage className="w-12 h-12 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
-                  Click to upload or drag and drop
-                </span>
-                <span className="text-xs text-gray-500 mt-1">
-                  JPEG, PNG, GIF, WebP up to 5MB
-                </span>
-              </label>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="relative rounded-lg overflow-hidden">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
-                  title="Remove image"
-                >
-                  <FiX className="w-5 h-5" />
-                </button>
-              </div>
-              
-              {/* Upload Progress */}
-              {uploadProgress > 0 && uploadProgress < 100 && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                    <span>Uploading...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
+          {isPremium ? (
+            hasImageQuota ? (
+              !previewUrl ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="image-upload"
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
+                    <FiImage className="w-12 h-12 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">
+                      Click to upload or drag and drop
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      JPEG, PNG, GIF, WebP up to 5MB
+                    </span>
+                  </label>
                 </div>
-              )}
-              
-              {/* Upload Complete */}
-              {uploadedImage && uploadProgress === 100 && (
-                <p className="mt-2 text-sm text-green-600 flex items-center">
-                  <FiUpload className="w-4 h-4 mr-1" />
-                  Image uploaded successfully
+              ) : (
+                <div className="relative">
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                      title="Remove image"
+                    >
+                      <FiX className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Upload Progress */}
+                  {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                        <span>Uploading...</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Upload Complete */}
+                  {uploadedImage && uploadProgress === 100 && (
+                    <p className="mt-2 text-sm text-green-600 flex items-center">
+                      <FiUpload className="w-4 h-4 mr-1" />
+                      Image uploaded successfully
+                    </p>
+                  )}
+                </div>
+              )
+            ) : (
+              <div className="border-2 border-dashed border-red-300 rounded-lg p-6 text-center bg-red-50">
+                <FiLock className="w-12 h-12 text-red-400 mx-auto mb-2" />
+                <p className="text-red-600">
+                  You have reached your image upload limit ({imageUsed}/{imageLimit})
                 </p>
-              )}
+                <Link to="/premium" className="text-sm text-red-500 hover:underline mt-2 inline-block">
+                  <FiStar className="inline mr-1" />
+                  Upgrade your plan for more uploads
+                </Link>
+              </div>
+            )
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+              <FiLock className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600 mb-3">
+                Image uploads are a premium feature
+              </p>
+              <Link
+                to="/premium"
+                className="btn btn-primary inline-flex items-center gap-2"
+              >
+                <FiStar className="w-4 h-4" />
+                Upgrade to Premium
+              </Link>
             </div>
           )}
           

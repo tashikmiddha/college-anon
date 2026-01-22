@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api/posts';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = API_BASE_URL ? `${API_BASE_URL}/api/posts` : '/api/posts';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -69,7 +70,11 @@ export const postAPI = {
     const queryParams = new URLSearchParams(params).toString();
     
     try {
-      const response = await fetch(`${API_URL}?${queryParams}`);
+      const response = await fetch(`${API_URL}?${queryParams}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -102,11 +107,22 @@ export const postAPI = {
   },
 
   getPost: async (id) => {
-    const response = await fetch(`${API_URL}/${id}`);
+    const response = await fetch(`${API_URL}/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
     
     const data = await response.json();
     
     if (!response.ok) {
+      // Handle college access denied
+      if (response.status === 403) {
+        const error = new Error(data.message || 'You do not have permission to view this post');
+        error.accessDenied = true;
+        error.college = data.college;
+        throw error;
+      }
       throw new Error(data.message || 'Failed to fetch post');
     }
     

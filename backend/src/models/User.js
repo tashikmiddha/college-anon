@@ -15,11 +15,9 @@ const userSchema = new mongoose.Schema({
     minlength: 6,
     select: false
   },
-  collegeEmail: {
+  college: {
     type: String,
-    required: [true, 'Please provide your college email'],
-    unique: true,
-    lowercase: true,
+    required: [true, 'Please select your college'],
     trim: true
   },
   displayName: {
@@ -50,6 +48,65 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  },
+  verificationTokenExpires: {
+    type: Date,
+    default: null
+  },
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null
+  },
+  
+  // Premium Status
+  isPremium: {
+    type: Boolean,
+    default: false
+  },
+  premiumGrantedAt: {
+    type: Date,
+    default: null
+  },
+  premiumExpiresAt: {
+    type: Date,
+    default: null
+  },
+  
+  // Premium Quotas (admin configurable limits)
+  premiumLimits: {
+    imageUploads: {
+      type: Number,
+      default: 10
+    },
+    competitions: {
+      type: Number,
+      default: 5
+    }
+  },
+  
+  // Premium Usage Tracking
+  premiumUsage: {
+    imageUploads: {
+      type: Number,
+      default: 0
+    },
+    competitions: {
+      type: Number,
+      default: 0
+    }
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now

@@ -31,8 +31,7 @@ export const register = createAsyncThunk(
     try {
       const response = await authAPI.register(userData);
       console.log('Register response:', response);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response));
+      // Don't save token and user to localStorage - user must verify email first
       return response;
     } catch (error) {
       console.error('Register error:', error);
@@ -65,6 +64,10 @@ export const getMe = createAsyncThunk(
       const response = await authAPI.getMe(token);
       return response;
     } catch (error) {
+      // Check if error indicates needs verification
+      if (error.response?.data?.needsVerification) {
+        return rejectWithValue(error.response.data.message || 'Please verify your email');
+      }
       return rejectWithValue(error.message);
     }
   }
@@ -79,6 +82,10 @@ export const updateProfile = createAsyncThunk(
       localStorage.setItem('user', JSON.stringify(response));
       return response;
     } catch (error) {
+      // Check if error indicates needs verification
+      if (error.response?.data?.needsVerification) {
+        return rejectWithValue(error.response.data.message || 'Please verify your email');
+      }
       return rejectWithValue(error.message);
     }
   }
@@ -96,6 +103,58 @@ export const refreshAnonId = createAsyncThunk(
       localStorage.setItem('user', JSON.stringify(user));
       return response;
     } catch (error) {
+      // Check if error indicates needs verification
+      if (error.response?.data?.needsVerification) {
+        return rejectWithValue(error.response.data.message || 'Please verify your email');
+      }
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const verifyEmail = createAsyncThunk(
+  'auth/verifyEmail',
+  async (token, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.verifyEmail(token);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const resendVerificationEmail = createAsyncThunk(
+  'auth/resendVerificationEmail',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.resendVerificationEmail(email);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const forgotPassword = createAsyncThunk(
+  'auth/forgotPassword',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.forgotPassword(email);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ token, password }, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.resetPassword(token, password);
+      return response;
+    } catch (error) {
       return rejectWithValue(error.message);
     }
   }
@@ -108,6 +167,7 @@ const initialState = {
   isError: false,
   isSuccess: false,
   message: '',
+  passwordResetSent: false,
 };
 
 const authSlice = createSlice({
@@ -122,6 +182,8 @@ const authSlice = createSlice({
       state.isError = false;
       state.isSuccess = false;
       state.message = '';
+      state.needsVerification = false;
+      state.passwordResetSent = false;
     },
     clearError: (state) => {
       state.isError = false;
@@ -131,6 +193,13 @@ const authSlice = createSlice({
       if (state.user) {
         state.user.anonId = action.payload;
       }
+    },
+    clearPasswordResetSent: (state) => {
+      state.passwordResetSent = false;
+    },
+    setNeedsVerification: (state, action) => {
+      state.needsVerification = true;
+      state.message = action.payload || 'Please verify your email to access this feature';
     },
   },
   extraReducers: (builder) => {
@@ -144,8 +213,10 @@ const authSlice = createSlice({
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.user = action.payload;
-        state.token = action.payload.token;
+        // Don't set user/token - user must verify email first before logging in
+        state.message = action.payload.message;
+        state.user = null;
+        state.token = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
@@ -158,18 +229,21 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.isError = false;
         state.message = '';
+        state.needsVerification = false;
       })
       .addCase(login.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
         state.user = action.payload;
         state.token = action.payload.token;
+        state.needsVerification = false;
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
         state.isError = true;
         state.message = action.payload;
         state.user = null;
+        state.needsVerification = false;
       })
       // Get Me
       .addCase(getMe.pending, (state) => {
@@ -178,12 +252,24 @@ const authSlice = createSlice({
       .addCase(getMe.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload;
+        // Clear needsVerification flag when user is verified
+        state.needsVerification = false;
       })
-      .addCase(getMe.rejected, (state) => {
+      .addCase(getMe.rejected, (state, action) => {
         state.isLoading = false;
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        state.user = null;
+        // Check if error indicates needs verification (from error.response.data)
+        const errorData = action.error?.response?.data;
+        if (errorData?.needsVerification || (action.payload && action.payload.includes('verify'))) {
+          state.needsVerification = true;
+          state.message = action.payload || errorData?.message || 'Please verify your email';
+          // Don't logout immediately - keep user logged in but set flag
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          state.user = null;
+          state.token = null;
+          state.needsVerification = false;
+        }
       })
       // Update Profile
       .addCase(updateProfile.fulfilled, (state, action) => {
@@ -194,10 +280,77 @@ const authSlice = createSlice({
         if (state.user) {
           state.user.anonId = action.payload.anonId;
         }
+      })
+      // Verify Email
+      .addCase(verifyEmail.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+        state.message = '';
+      })
+      .addCase(verifyEmail.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.message = action.payload.message;
+      })
+      .addCase(verifyEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Resend Verification Email
+      .addCase(resendVerificationEmail.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+        state.message = '';
+      })
+      .addCase(resendVerificationEmail.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.message = action.payload.message;
+      })
+      .addCase(resendVerificationEmail.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Forgot Password
+      .addCase(forgotPassword.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+        state.message = '';
+        state.passwordResetSent = false;
+      })
+      .addCase(forgotPassword.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.message = action.payload.message;
+        state.passwordResetSent = true;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
+      })
+      // Reset Password
+      .addCase(resetPassword.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+        state.message = '';
+      })
+      .addCase(resetPassword.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.message = action.payload.message;
+        state.passwordResetSent = false;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
       });
   },
 });
 
-export const { logout, clearError, updateUserAnonId } = authSlice.actions;
+export const { logout, clearError, updateUserAnonId, clearPasswordResetSent, setNeedsVerification } = authSlice.actions;
 export default authSlice.reducer;
 

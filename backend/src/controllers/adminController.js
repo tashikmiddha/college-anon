@@ -7,18 +7,30 @@ import Report from '../models/Report.js';
 // @access  Private/Admin
 export const getStats = async (req, res) => {
   try {
+    const { college } = req.query;
+    
+    // Build filter for college
+    const postFilter = { isActive: true };
+    const userFilter = {};
+    
+    if (college) {
+      postFilter.college = college;
+      userFilter.college = college;
+    }
+
     const [postCount, userCount, reportCount, pendingPosts] = await Promise.all([
-      Post.countDocuments({ isActive: true }),
-      User.countDocuments(),
+      Post.countDocuments(postFilter),
+      User.countDocuments(userFilter),
       Report.countDocuments({ status: 'pending' }),
-      Post.countDocuments({ moderationStatus: 'pending' })
+      Post.countDocuments({ ...postFilter, moderationStatus: 'pending' })
     ]);
 
     res.json({
       totalPosts: postCount,
       totalUsers: userCount,
       pendingReports: reportCount,
-      pendingModeration: pendingPosts
+      pendingModeration: pendingPosts,
+      filteredCollege: college || null
     });
   } catch (error) {
     console.error(error);
@@ -39,12 +51,15 @@ export const getAllPosts = async (req, res) => {
     if (req.query.status) {
       filter.moderationStatus = req.query.status;
     }
+    if (req.query.college) {
+      filter.college = req.query.college;
+    }
 
     const posts = await Post.find(filter)
       .sort('-createdAt')
       .skip(skip)
       .limit(limit)
-      .populate('author', 'email collegeEmail anonId displayName');
+      .populate('author', 'email anonId displayName');
 
     const total = await Post.countDocuments(filter);
 
@@ -52,7 +67,8 @@ export const getAllPosts = async (req, res) => {
       posts,
       page,
       pages: Math.ceil(total / limit),
-      total
+      total,
+      filteredCollege: req.query.college || null
     });
   } catch (error) {
     console.error(error);
@@ -286,6 +302,165 @@ export const unblockUser = async (req, res) => {
     await user.save();
 
     res.json({ message: 'User unblocked successfully', user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Grant premium to user
+// @route   POST /api/admin/users/:id/grant-premium
+// @access  Private/Admin
+export const grantPremium = async (req, res) => {
+  try {
+    const { imageUploads, competitions, durationDays } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Calculate expiry date
+    const duration = parseInt(durationDays) || 30; // Default 30 days
+    const expiresAt = new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
+
+    user.isPremium = true;
+    user.premiumGrantedAt = new Date();
+    user.premiumExpiresAt = expiresAt;
+    
+    // Set custom quotas if provided, otherwise use defaults
+    user.premiumLimits = {
+      imageUploads: imageUploads || 10,
+      competitions: competitions || 5
+    };
+
+    // Reset usage when granting premium
+    user.premiumUsage = {
+      imageUploads: 0,
+      competitions: 0
+    };
+
+    await user.save();
+
+    res.json({ 
+      message: 'Premium granted successfully', 
+      user,
+      grantedUntil: expiresAt
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Revoke premium from user
+// @route   PUT /api/admin/users/:id/revoke-premium
+// @access  Private/Admin
+export const revokePremium = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.isPremium = false;
+    user.premiumExpiresAt = new Date();
+    await user.save();
+
+    res.json({ message: 'Premium revoked successfully', user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update premium quotas
+// @route   PUT /api/admin/users/:id/update-quotas
+// @access  Private/Admin
+export const updatePremiumQuotas = async (req, res) => {
+  try {
+    const { imageUploads, competitions } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.isPremium) {
+      return res.status(400).json({ message: 'User is not a premium member' });
+    }
+
+    // Update quotas (only provided fields)
+    if (imageUploads !== undefined) {
+      user.premiumLimits.imageUploads = parseInt(imageUploads);
+    }
+    if (competitions !== undefined) {
+      user.premiumLimits.competitions = parseInt(competitions);
+    }
+
+    await user.save();
+
+    res.json({ message: 'Quotas updated successfully', user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all premium users
+// @route   GET /api/admin/premium-users
+// @access  Private/Admin
+export const getPremiumUsers = async (req, res) => {
+  try {
+    const { college, status } = req.query;
+    
+    const filter = { isPremium: true };
+    
+    if (college) {
+      filter.college = college;
+    }
+    
+    if (status === 'active') {
+      filter.premiumExpiresAt = { $gt: new Date() };
+    } else if (status === 'expired') {
+      filter.premiumExpiresAt = { $lte: new Date() };
+    }
+
+    const users = await User.find(filter)
+      .select('-password')
+      .sort('-premiumGrantedAt');
+
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Reset premium usage
+// @route   PUT /api/admin/users/:id/reset-usage
+// @access  Private/Admin
+export const resetPremiumUsage = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.isPremium) {
+      return res.status(400).json({ message: 'User is not a premium member' });
+    }
+
+    user.premiumUsage = {
+      imageUploads: 0,
+      competitions: 0
+    };
+
+    await user.save();
+
+    res.json({ message: 'Usage reset successfully', user });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

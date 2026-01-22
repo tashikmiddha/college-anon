@@ -11,7 +11,12 @@ import {
   togglePin,
   deletePost,
   blockUser,
-  unblockUser
+  unblockUser,
+  grantPremium,
+  revokePremium,
+  updatePremiumQuotas,
+  getPremiumUsers,
+  resetPremiumUsage
 } from '../controllers/adminController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { admin } from '../middleware/adminMiddleware.js';
@@ -40,6 +45,13 @@ router.put('/users/:id/toggle-admin', toggleAdmin);
 router.put('/users/:id/block', blockUser);
 router.put('/users/:id/unblock', unblockUser);
 router.delete('/users/:id', deleteUser);
+
+// Premium management
+router.get('/premium-users', getPremiumUsers);
+router.post('/users/:id/grant-premium', grantPremium);
+router.put('/users/:id/revoke-premium', revokePremium);
+router.put('/users/:id/update-quotas', updatePremiumQuotas);
+router.put('/users/:id/reset-usage', resetPremiumUsage);
 
 export default router;
 

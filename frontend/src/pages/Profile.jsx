@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { refreshAnonId, updateProfile } from '../features/auth/authSlice';
+import { FiStar, FiImage, FiAward, FiClock, FiExternalLink } from 'react-icons/fi';
 
 const Profile = () => {
   const { user, isLoading, isSuccess, message } = useSelector((state) => state.auth);
@@ -15,6 +16,14 @@ const Profile = () => {
   });
 
   const { displayName, newPassword, confirmPassword } = formData;
+
+  // Check premium status
+  const isPremium = user?.isPremium && new Date(user?.premiumExpiresAt) > new Date();
+  const premiumExpiresAt = user?.premiumExpiresAt ? new Date(user.premiumExpiresAt) : null;
+  const imageLimit = user?.premiumLimits?.imageUploads || 0;
+  const imageUsed = user?.premiumUsage?.imageUploads || 0;
+  const competitionLimit = user?.premiumLimits?.competitions || 0;
+  const competitionUsed = user?.premiumUsage?.competitions || 0;
 
   useEffect(() => {
     if (!user) {
@@ -69,6 +78,87 @@ const Profile = () => {
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
 
+        {/* Premium Status Card */}
+        {isPremium ? (
+          <div className="card space-y-6 mb-6 bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
+                  <FiStar className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-yellow-800">Premium Member</h2>
+                  <p className="text-sm text-yellow-600">
+                    Valid until {premiumExpiresAt.toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <Link to="/premium" className="btn btn-secondary text-sm">
+                <FiExternalLink className="mr-1" />
+                Manage
+              </Link>
+            </div>
+
+            {/* Usage Stats */}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-yellow-200">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="flex items-center text-sm text-gray-600">
+                    <FiImage className="mr-1" />
+                    Image Uploads
+                  </span>
+                  <span className="text-sm font-medium">
+                    {imageUsed} / {imageLimit}
+                  </span>
+                </div>
+                <div className="w-full bg-yellow-200 rounded-full h-2">
+                  <div
+                    className="bg-yellow-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((imageUsed / imageLimit) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="flex items-center text-sm text-gray-600">
+                    <FiAward className="mr-1" />
+                    Competitions
+                  </span>
+                  <span className="text-sm font-medium">
+                    {competitionUsed} / {competitionLimit}
+                  </span>
+                </div>
+                <div className="w-full bg-yellow-200 rounded-full h-2">
+                  <div
+                    className="bg-yellow-500 h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min((competitionUsed / competitionLimit) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="card space-y-6 mb-6 bg-gray-50 border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-4">
+                  <FiStar className="w-6 h-6 text-gray-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-700">Standard Member</h2>
+                  <p className="text-sm text-gray-500">
+                    Upgrade to unlock premium features
+                  </p>
+                </div>
+              </div>
+              <Link to="/premium" className="btn btn-primary text-sm">
+                <FiStar className="mr-1" />
+                Upgrade
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="card space-y-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Account Information</h2>
 
@@ -79,7 +169,7 @@ const Profile = () => {
               </label>
               <input
                 type="email"
-                value={user.collegeEmail}
+                value={user.collegeEmail || user.email}
                 disabled
                 className="input bg-gray-100"
               />

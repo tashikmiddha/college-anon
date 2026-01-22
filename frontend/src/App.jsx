@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -9,13 +10,24 @@ import EditPost from './pages/EditPost';
 import PostDetail from './pages/PostDetail';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Premium from './pages/Premium';
+import VerifyEmail from './pages/VerifyEmail';
+import VerifyEmailInfo from './pages/VerifyEmailInfo';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Competitions from './pages/Competitions';
+import CreateCompetition from './pages/CreateCompetition';
 import ErrorBoundary from './components/ErrorBoundary';
+import { getMe } from './features/auth/authSlice';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { user } = useSelector((state) => state.auth);
+  const { user, needsVerification } = useSelector((state) => state.auth);
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  if (needsVerification) {
+    return <Navigate to="/login?verify=true" replace />;
   }
   return children;
 };
@@ -54,6 +66,16 @@ const RouteWrapper = ({ children }) => {
 };
 
 function App() {
+  const dispatch = useDispatch();
+  const { user, token } = useSelector((state) => state.auth);
+
+  // Fetch fresh user data on app load to get college info
+  useEffect(() => {
+    if (token && user) {
+      dispatch(getMe());
+    }
+  }, [dispatch, token]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -62,6 +84,10 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+<Route path="/verify-email/:token" element={<VerifyEmail />} />
+          <Route path="/verify-email-info" element={<VerifyEmailInfo />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/post/:id" element={<PostDetail />} />
 
           {/* Protected Routes */}
@@ -71,6 +97,36 @@ function App() {
               <RouteWrapper>
                 <ProtectedRoute>
                   <Home />
+                </ProtectedRoute>
+              </RouteWrapper>
+            }
+          />
+          <Route
+            path="/competitions"
+            element={
+              <RouteWrapper>
+                <ProtectedRoute>
+                  <Competitions />
+                </ProtectedRoute>
+              </RouteWrapper>
+            }
+          />
+          <Route
+            path="/competitions/create"
+            element={
+              <RouteWrapper>
+                <ProtectedRoute>
+                  <CreateCompetition />
+                </ProtectedRoute>
+              </RouteWrapper>
+            }
+          />
+          <Route
+            path="/premium"
+            element={
+              <RouteWrapper>
+                <ProtectedRoute>
+                  <Premium />
                 </ProtectedRoute>
               </RouteWrapper>
             }

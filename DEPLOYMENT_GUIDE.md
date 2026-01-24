@@ -44,7 +44,31 @@ gh repo create college-anon-backend --public --source=. --push
 
 ---
 
-## Step 3: Deploy Backend on Render
+## Step 3: Set Up Email with Brevo (Recommended)
+
+Render's free tier blocks outgoing SMTP connections. Use **Brevo** - a reliable email API provider that works on Render's free tier.
+
+### Sign Up for Brevo
+
+1. Go to [Brevo](https://brevo.com)
+2. Sign up for free account
+3. Go to SMTP & API → API Keys
+4. Create an API key and copy it
+
+### Add Brevo to Backend
+
+Add these environment variables in Render:
+
+```env
+BREVO_API_KEY=your-brevo-api-key
+EMAIL_FROM=noreply@yourdomain.com
+```
+
+> Note: You can verify your domain in Brevo to send emails from your own domain.
+
+---
+
+## Step 4: Deploy Backend on Render
 
 ### Create Web Service
 
@@ -73,6 +97,7 @@ gh repo create college-anon-backend --public --source=. --push
    FRONTEND_URL=https://your-vercel-domain.vercel.app
    RATE_LIMIT_WINDOW_MS=900000
    RATE_LIMIT_MAX_REQUESTS=100
+   RESEND_API_KEY=re_your-resend-api-key
    ```
 
 6. Click "Create Web Service"
@@ -85,7 +110,7 @@ https://college-anon-backend.onrender.com
 
 ---
 
-## Step 4: Deploy Frontend on Vercel
+## Step 5: Deploy Frontend on Vercel
 
 ### Option A: Vercel CLI
 
@@ -121,20 +146,6 @@ vercel --prod
 Add your Vercel URL to Render environment variables:
 ```
 FRONTEND_URL=https://your-project.vercel.app
-```
-
----
-
-## Step 5: Update Frontend API Base URL
-
-Edit `frontend/src/features/auth/authAPI.js`:
-```javascript
-const API_URL = import.meta.env.VITE_API_URL || '/api/auth';
-```
-
-Or set environment variable:
-```env
-VITE_API_URL=https://college-anon-backend.onrender.com
 ```
 
 ---
@@ -196,6 +207,7 @@ VITE_API_URL=https://college-anon-backend.onrender.com
 | MongoDB Atlas | 512 MB storage | $0 |
 | Render | 750 hours/month | $0 |
 | Vercel | 100 GB bandwidth | $0 |
+| Resend | 3,000 emails/month | $0 |
 | OpenAI | Pay per use | ~$0.01/1000 tokens |
 
 **Total: ~$0-5/month depending on usage**
@@ -218,6 +230,12 @@ VITE_API_URL=https://college-anon-backend.onrender.com
 - Add Redis caching
 - Optimize MongoDB queries
 
+### Emails Not Sending
+- Render free tier blocks SMTP connections
+- Use Resend API instead (already configured in code)
+- Add `RESEND_API_KEY` environment variable in Render
+- Check Render logs for email errors
+
 ---
 
 ## Environment Variables Summary
@@ -233,7 +251,21 @@ OPENAI_API_KEY=sk-...
 FRONTEND_URL=https://*.vercel.app
 RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
+BREVO_API_KEY=your-brevo-api-key
+EMAIL_FROM=noreply@yourdomain.com
+
+# Redis Configuration (for caching and distributed rate limiting)
+REDIS_URL=redis://your-redis-host:6379
+ENABLE_CLUSTERING=true
+MAX_WORKERS=0  # 0 = auto-detect CPU cores
 ```
+
+### Redis on Render
+Render offers Redis as an add-on. To add Redis:
+1. Go to your Render dashboard
+2. Click "New" → "Redis"
+3. Create a new Redis instance
+4. Copy the connection URL and add it to your backend's environment variables
 
 ### Frontend (Vercel)
 ```env

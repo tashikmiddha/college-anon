@@ -2,7 +2,8 @@ import User from '../models/User.js';
 import { generateToken } from '../middleware/authMiddleware.js';
 import { generateUniqueAnonId } from '../utils/generateAnonId.js';
 import crypto from 'crypto';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/emailService.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendPaymentConfirmationEmail } from '../utils/emailService.js';
+import { uploadImage } from '../config/cloudinary.js';
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -18,8 +19,10 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
+    // Check if user exists (case-insensitive)
+    const userExists = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
@@ -106,7 +109,10 @@ export const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ message: 'Please provide your email' });
     }
 
-    const user = await User.findOne({ email });
+    // Make email lookup case-insensitive
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -134,6 +140,33 @@ export const resendVerificationEmail = async (req, res) => {
   }
 };
 
+// @desc    Check if user exists
+// @route   POST /api/auth/check-user
+// @access  Public
+export const checkUserExists = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Please provide your email' });
+    }
+
+    // Make email lookup case-insensitive
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
+
+    if (!user) {
+      return res.status(404).json({ exists: false, message: 'No account found with this email address' });
+    }
+
+    res.json({ exists: true, message: 'User found' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // @desc    Forgot password
 // @route   POST /api/auth/forgot-password
 // @access  Public
@@ -145,7 +178,10 @@ export const forgotPassword = async (req, res) => {
       return res.status(400).json({ message: 'Please provide your email' });
     }
 
-    const user = await User.findOne({ email });
+    // Make email lookup case-insensitive
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    });
 
     if (!user) {
       // Don't reveal if user exists
@@ -221,8 +257,10 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    // Check for user (case-insensitive)
+    const user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    }).select('+password');
     if (!user) {
       console.log('User not found for:', email);
       return res.status(401).json({ message: 'Wrong email or password' });
@@ -233,6 +271,15 @@ export const loginUser = async (req, res) => {
     console.log('Password match result:', isMatch);
     if (!isMatch) {
       return res.status(401).json({ message: 'Wrong email or password' });
+    }
+
+    // Check if user is blocked
+    if (user.isBlocked) {
+      return res.status(403).json({ 
+        message: 'Your account has been blocked by an administrator. Please contact support for assistance.',
+        isBlocked: true,
+        blockReason: user.blockReason || 'Violation of community guidelines'
+      });
     }
 
     // Check if user is verified
@@ -347,6 +394,60 @@ export const refreshAnonId = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Submit payment for premium
+// @route   POST /api/auth/submit-payment
+// @access  Private
+export const submitPayment = async (req, res) => {
+  try {
+    const { planId, planName, amount } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Upload screenshot to Cloudinary
+    let screenshotUrl = '';
+    if (req.file) {
+      try {
+        const result = await uploadImage(req.file.buffer, 'college-anon/payments');
+        screenshotUrl = result.url;
+      } catch (uploadError) {
+        console.error('Error uploading payment screenshot:', uploadError);
+        return res.status(500).json({ message: 'Failed to upload payment screenshot' });
+      }
+    } else {
+      return res.status(400).json({ message: 'Payment screenshot is required' });
+    }
+
+    // Send email to admin
+    try {
+      await sendPaymentConfirmationEmail({
+        to: 'collegeanon5@gmail.com',
+        userName: user.displayName || 'Anonymous',
+        userEmail: user.email,
+        userAnonId: user.anonId,
+        userCollege: user.college,
+        planId,
+        planName,
+        amount,
+        screenshotUrl
+      });
+    } catch (emailError) {
+      console.error('Error sending payment confirmation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.json({ 
+      message: 'Payment submitted successfully. Admin will verify and grant you premium access within 24 hours.',
+      submitted: true
+    });
+  } catch (error) {
+    console.error('Error submitting payment:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

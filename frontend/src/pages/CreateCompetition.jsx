@@ -87,6 +87,7 @@ const CreateCompetition = () => {
   const [errors, setErrors] = useState({});
   const [uploadErrors, setUploadErrors] = useState({ option1: null, option2: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false); // Track if form has been submitted
 
   const option1InputRef = useRef(null);
   const option2InputRef = useRef(null);
@@ -198,35 +199,47 @@ const CreateCompetition = () => {
 
   const validate = () => {
     const newErrors = {};
+    let isValid = true;
     
     if (!formData.title.trim()) {
       newErrors.title = 'Title is required';
+      isValid = false;
     } else if (formData.title.length > 200) {
       newErrors.title = 'Title cannot be more than 200 characters';
+      isValid = false;
     }
     
     if (!formData.option1Name.trim()) {
       newErrors.option1Name = 'Option 1 name is required';
+      isValid = false;
     }
     
     if (!formData.option2Name.trim()) {
       newErrors.option2Name = 'Option 2 name is required';
+      isValid = false;
     }
     
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return isValid;
   };
+
+  // Check if form is valid for button state
+  const isFormValid = formData.title.trim() && formData.option1Name.trim() && formData.option2Name.trim();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // Prevent multiple submissions
+    if (hasSubmitted || isSubmitting) {
+      return;
+    }
+
     if (!validate()) {
       return;
     }
 
-    if (isSubmitting) return;
-
     setIsSubmitting(true);
+    setHasSubmitted(true); // Mark as submitted to prevent duplicates
 
     // Create competition data with images
     const competitionData = {
@@ -245,12 +258,13 @@ const CreateCompetition = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await createCompetitionAPI(competitionData, token);
-      
+
       // Update Redux state with the created competition
       dispatch(createCompetition(response));
     } catch (error) {
       setErrors({ submit: error.message });
       setIsSubmitting(false);
+      setHasSubmitted(false); // Reset on error so user can try again
     }
   };
 
@@ -296,7 +310,7 @@ const CreateCompetition = () => {
         {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Question/Title *
+            Question/Title <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -344,7 +358,7 @@ const CreateCompetition = () => {
             {/* Option 1 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Option 1 Name *
+                Option 1 Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -432,7 +446,7 @@ const CreateCompetition = () => {
             {/* Option 2 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Option 2 Name *
+                Option 2 Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -543,6 +557,25 @@ const CreateCompetition = () => {
           </p>
         </div>
 
+        {/* Required fields indicator */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <FiStar className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-amber-800">
+            <p className="font-medium">Required fields:</p>
+            <ul className="mt-1 list-disc list-inside text-amber-700">
+              <li className={formData.title.trim() ? 'opacity-50' : ''}>
+                Title {formData.title.trim() && '✓'}
+              </li>
+              <li className={formData.option1Name.trim() ? 'opacity-50' : ''}>
+                Option 1 Name {formData.option1Name.trim() && '✓'}
+              </li>
+              <li className={formData.option2Name.trim() ? 'opacity-50' : ''}>
+                Option 2 Name {formData.option2Name.trim() && '✓'}
+              </li>
+            </ul>
+          </div>
+        </div>
+
         {/* Submit */}
         <div className="flex space-x-4">
           <button
@@ -555,8 +588,11 @@ const CreateCompetition = () => {
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="btn btn-primary flex-1 flex items-center justify-center gap-2"
+            disabled={!isFormValid || isSubmitting || hasSubmitted}
+            className={`btn flex-1 flex items-center justify-center gap-2 ${
+              !isFormValid || hasSubmitted ? 'opacity-50 cursor-not-allowed' : 'btn-primary'
+            }`}
+            title={!isFormValid ? 'Please fill in all required fields' : hasSubmitted ? 'Competition is being created...' : ''}
           >
             {isSubmitting ? (
               <>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { forgotPassword, clearError, clearPasswordResetSent } from '../features/auth/authSlice';
+import { forgotPassword, clearError, clearPasswordResetSent, checkUserExists } from '../features/auth/authSlice';
 
 const ForgotPassword = () => {
   const [formData, setFormData] = useState({
@@ -10,15 +10,28 @@ const ForgotPassword = () => {
 
   const [localError, setLocalError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Track which fields have been touched for validation
+  const [touched, setTouched] = useState(false);
+  // Track validation errors
+  const [validationError, setValidationError] = useState('');
 
   const { email } = formData;
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { isLoading, isError, isSuccess, message, passwordResetSent } = useSelector((state) => state.auth);
+
+  // Validate email field
+  const validateEmail = (value) => {
+    if (!value.trim()) return 'Email is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return 'Please enter a valid email address';
+    return '';
+  };
 
   useEffect(() => {
     if (isError && message) {
       setLocalError(message);
+      setSuccessMessage('');
     }
     if (passwordResetSent) {
       setSuccessMessage(message || 'Password reset email sent!');
@@ -34,26 +47,76 @@ const ForgotPassword = () => {
   }, [dispatch]);
 
   const handleChange = (e) => {
+    const { value } = e.target;
+    
     setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
+      email: value,
     });
     setLocalError('');
     setSuccessMessage('');
+
+    // Validate field and update validation error
+    const fieldError = validateEmail(value);
+    setValidationError(fieldError);
   };
 
-  const handleSubmit = (e) => {
+  const handleBlur = () => {
+    // Mark field as touched
+    setTouched(true);
+    // Validate field on blur
+    const fieldError = validateEmail(email);
+    setValidationError(fieldError);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
     setSuccessMessage('');
     dispatch(clearError());
 
-    if (!email) {
+    // Mark field as touched
+    setTouched(true);
+
+    // Trim the email to remove whitespace
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Validate
+    const emailError = validateEmail(trimmedEmail);
+    setValidationError(emailError);
+    
+    if (emailError) {
+      return;
+    }
+
+    if (!trimmedEmail) {
       setLocalError('Please provide your email address');
       return;
     }
 
-    dispatch(forgotPassword(email));
+    // First check if user exists
+    try {
+      const result = await dispatch(checkUserExists(trimmedEmail)).unwrap();
+      
+      // User exists, send password reset
+      if (result.exists) {
+        await dispatch(forgotPassword(trimmedEmail)).unwrap();
+      }
+    } catch (error) {
+      // User doesn't exist
+      setLocalError('Invalid email address. No account found with this email.');
+    }
+  };
+
+  // Helper to get input border class
+  const getInputClass = () => {
+    const baseClass = 'input';
+    if (touched && validationError) {
+      return `${baseClass} border-red-500 focus:ring-red-500 focus:border-red-500`;
+    }
+    if (touched && !validationError && email) {
+      return `${baseClass} border-green-500 focus:ring-green-500 focus:border-green-500`;
+    }
+    return baseClass;
   };
 
   return (
@@ -96,17 +159,26 @@ const ForgotPassword = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
+                    Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={email}
                     onChange={handleChange}
-                    className="input"
+                    onBlur={handleBlur}
+                    className={getInputClass()}
                     placeholder="your.email@college.edu"
-                    required
                   />
+                  {/* Email validation error */}
+                  {touched && validationError && (
+                    <p className="text-sm text-red-600 mt-1 flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {validationError}
+                    </p>
+                  )}
                 </div>
 
                 {isLoading ? (
@@ -116,7 +188,8 @@ const ForgotPassword = () => {
                 ) : (
                   <button
                     type="submit"
-                    className="btn btn-primary w-full py-3"
+                    disabled={isLoading || (touched && validationError) || !email.trim()}
+                    className={`btn w-full py-3 ${(touched && validationError) || !email.trim() ? 'opacity-50 cursor-not-allowed' : 'btn-primary'}`}
                   >
                     Send Reset Link
                   </button>

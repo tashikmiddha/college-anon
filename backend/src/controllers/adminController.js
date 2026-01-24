@@ -1,6 +1,9 @@
 import Post from '../models/Post.js';
 import User from '../models/User.js';
 import Report from '../models/Report.js';
+import Feedback from '../models/Feedback.js';
+import Comment from '../models/Comment.js';
+import { postCache } from '../config/cache.js';
 
 // @desc    Get dashboard stats
 // @route   GET /api/admin/stats
@@ -47,7 +50,7 @@ export const getAllPosts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const filter = {};
+    const filter = { isActive: true };
     if (req.query.status) {
       filter.moderationStatus = req.query.status;
     }
@@ -55,19 +58,21 @@ export const getAllPosts = async (req, res) => {
       filter.college = req.query.college;
     }
 
-    const posts = await Post.find(filter)
-      .sort('-createdAt')
-      .skip(skip)
-      .limit(limit)
-      .populate('author', 'email anonId displayName');
-
-    const total = await Post.countDocuments(filter);
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('author', 'email anonId displayName'),
+      Post.countDocuments(filter)
+    ]);
 
     res.json({
       posts,
       page,
       pages: Math.ceil(total / limit),
       total,
+      hasMore: page < Math.ceil(total / limit),
       filteredCollege: req.query.college || null
     });
   } catch (error) {
@@ -99,17 +104,68 @@ export const moderatePost = async (req, res) => {
   }
 };
 
+// @desc    Get reports submitted by the current user
+// @route   GET /api/admin/reports/my-reports
+// @access  Private
+export const getMyReports = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const [reports, total] = await Promise.all([
+      Report.find({ reporter: req.user._id })
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('post', 'title content moderationStatus')
+        .populate('reviewedBy', 'anonId displayName'),
+      Report.countDocuments({ reporter: req.user._id })
+    ]);
+
+    res.json({
+      reports,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // @desc    Get all reports
 // @route   GET /api/admin/reports
 // @access  Private/Admin
 export const getReports = async (req, res) => {
   try {
-    const reports = await Report.find({ status: 'pending' })
-      .sort('-createdAt')
-      .populate('reporter', 'anonId displayName')
-      .populate('post');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
-    res.json(reports);
+    // Get all reports (not just pending) so admin can see all reports
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+
+    const [reports, total] = await Promise.all([
+      Report.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('reporter', 'anonId displayName')
+        .populate('post'),
+      Report.countDocuments(filter)
+    ]);
+
+    res.json({
+      reports,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -146,11 +202,33 @@ export const resolveReport = async (req, res) => {
 // @access  Private/Admin
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find()
-      .select('-password')
-      .sort('-createdAt');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
 
-    res.json(users);
+    const { college } = req.query;
+    const filter = {};
+
+    if (college) {
+      filter.college = college;
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select('-password')
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter)
+    ]);
+
+    res.json({
+      users,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -413,25 +491,40 @@ export const updatePremiumQuotas = async (req, res) => {
 // @access  Private/Admin
 export const getPremiumUsers = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const { college, status } = req.query;
-    
+
     const filter = { isPremium: true };
-    
+
     if (college) {
       filter.college = college;
     }
-    
+
     if (status === 'active') {
       filter.premiumExpiresAt = { $gt: new Date() };
     } else if (status === 'expired') {
       filter.premiumExpiresAt = { $lte: new Date() };
     }
 
-    const users = await User.find(filter)
-      .select('-password')
-      .sort('-premiumGrantedAt');
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select('-password')
+        .sort('-premiumGrantedAt')
+        .skip(skip)
+        .limit(limit),
+      User.countDocuments(filter)
+    ]);
 
-    res.json(users);
+    res.json({
+      users,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -461,6 +554,270 @@ export const resetPremiumUsage = async (req, res) => {
     await user.save();
 
     res.json({ message: 'Usage reset successfully', user });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Submit feedback
+// @route   POST /api/admin/feedback
+// @access  Private
+export const submitFeedback = async (req, res) => {
+  try {
+    const { type, message } = req.body;
+
+    const feedback = new Feedback({
+      user: req.user._id,
+      type,
+      message
+    });
+
+    await feedback.save();
+
+    res.status(201).json({ message: 'Feedback submitted successfully', feedback });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get feedbacks submitted by the current user
+// @route   GET /api/admin/feedback/my-feedbacks
+// @access  Private
+export const getMyFeedbacks = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const [feedbacks, total] = await Promise.all([
+      Feedback.find({ user: req.user._id })
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('reviewedBy', 'anonId displayName'),
+      Feedback.countDocuments({ user: req.user._id })
+    ]);
+
+    res.json({
+      feedbacks,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all feedbacks
+// @route   GET /api/admin/feedback
+// @access  Private/Admin
+export const getAllFeedbacks = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const { status, type } = req.query;
+    const filter = {};
+
+    if (status) {
+      filter.status = status;
+    }
+    if (type) {
+      filter.type = type;
+    }
+
+    const [feedbacks, total] = await Promise.all([
+      Feedback.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('user', 'anonId displayName email college'),
+      Feedback.countDocuments(filter)
+    ]);
+
+    res.json({
+      feedbacks,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Resolve feedback
+// @route   PUT /api/admin/feedback/:id/resolve
+// @access  Private/Admin
+export const resolveFeedback = async (req, res) => {
+  try {
+    const { adminNotes } = req.body;
+    const feedback = await Feedback.findById(req.params.id);
+
+    if (!feedback) {
+      return res.status(404).json({ message: 'Feedback not found' });
+    }
+
+    feedback.status = 'resolved';
+    feedback.adminNotes = adminNotes || '';
+    feedback.reviewedBy = req.user._id;
+    feedback.reviewedAt = Date.now();
+    await feedback.save();
+
+    res.json({ message: 'Feedback resolved', feedback });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Delete feedback
+// @route   DELETE /api/admin/feedback/:id
+// @access  Private/Admin
+export const deleteFeedback = async (req, res) => {
+  try {
+    const feedback = await Feedback.findById(req.params.id);
+
+    if (!feedback) {
+      return res.status(404).json({ message: 'Feedback not found' });
+    }
+
+    await Feedback.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Feedback deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all comments
+// @route   GET /api/admin/comments
+// @access  Private/Admin
+export const getAllComments = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const { college } = req.query;
+
+    // Build match stage for comments
+    const matchStage = { isActive: true };
+    if (college) {
+      matchStage.college = college;
+    }
+
+    // Use aggregation to filter out comments from deleted posts
+    const result = await Comment.aggregate([
+      {
+        $match: matchStage
+      },
+      {
+        $lookup: {
+          from: 'posts',
+          localField: 'post',
+          foreignField: '_id',
+          as: 'post'
+        }
+      },
+      {
+        $unwind: {
+          path: '$post',
+          preserveNullAndEmptyArrays: false // Only keep comments where post exists and isActive
+        }
+      },
+      {
+        $match: {
+          'post.isActive': true
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author'
+        }
+      },
+      {
+        $unwind: {
+          path: '$author',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      {
+        $project: {
+          'author.password': 0,
+          'author.isActive': 0,
+          'author.isBlocked': 0,
+          'author.blockReason': 0,
+          'author.blockedAt': 0
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      }
+    ]);
+
+    const comments = result[0].data;
+    const total = result[0].metadata[0]?.total || 0;
+
+    res.json({
+      comments,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Delete comment
+// @route   DELETE /api/admin/comments/:id
+// @access  Private/Admin
+export const deleteComment = async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    // Get the post ID before deleting the comment
+    const postId = comment.post;
+
+    await Comment.findByIdAndDelete(req.params.id);
+
+    // Update post comment count
+    const post = await Post.findById(postId);
+    if (post) {
+      post.commentCount = Math.max(0, post.commentCount - 1);
+      await post.save();
+
+      // Invalidate post cache so the updated comment count is reflected
+      await postCache.invalidatePost(postId.toString());
+      await postCache.invalidatePostsList(post.college);
+    }
+
+    res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

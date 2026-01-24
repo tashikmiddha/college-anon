@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { createPost, uploadImage, clearMessage, clearUploadedImage, fetchPosts } from '../features/posts/postSlice';
-import { FiImage, FiX, FiUpload, FiTrash2, FiStar, FiLock } from 'react-icons/fi';
+import { FiImage, FiX, FiUpload, FiTrash2, FiStar, FiLock, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 
 const categories = [
   { value: 'general', label: 'General' },
@@ -27,12 +27,17 @@ const CreatePost = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  
+  // Track which fields have been touched for validation
+  const [touched, setTouched] = useState({});
+  // Track validation errors
+  const [validationErrors, setValidationErrors] = useState({});
 
   const { title, content, category, tags } = formData;
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
-  const { isLoading, isError, isSuccess, message, uploadProgress, uploadedImage } = useSelector((state) => state.posts);
+  const { isLoading, isError, isSuccess, message, uploadProgress, uploadedImage, needsModeration } = useSelector((state) => state.posts);
 
   // Check premium status
   const isPremium = user?.isPremium && new Date(user?.premiumExpiresAt) > new Date();
@@ -40,15 +45,42 @@ const CreatePost = () => {
   const imageUsed = user?.premiumUsage?.imageUploads || 0;
   const hasImageQuota = imageUsed < imageLimit;
 
+  // Validate individual fields
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'title':
+        if (!value.trim()) return 'Title is required';
+        if (value.trim().length < 3) return 'Title must be at least 3 characters';
+        return '';
+      case 'content':
+        if (!value.trim()) return 'Content is required';
+        if (value.trim().length < 10) return 'Content must be at least 10 characters';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  // Check if form is valid
+  const isFormValid = () => {
+    const titleValid = validateField('title', title) === '';
+    const contentValid = validateField('content', content) === '';
+    return titleValid && contentValid;
+  };
+
   useEffect(() => {
     if (isError) {
       dispatch(clearMessage());
     }
     if (isSuccess) {
       dispatch(clearUploadedImage());
-      navigate('/');
+      // Only navigate if post doesn't need moderation
+      // If needs moderation, stay on page to show the message
+      if (!needsModeration) {
+        navigate('/');
+      }
     }
-  }, [isError, isSuccess, dispatch, navigate]);
+  }, [isError, isSuccess, needsModeration, dispatch, navigate]);
 
   // Set preview URL when file is selected
   useEffect(() => {
@@ -65,10 +97,34 @@ const CreatePost = () => {
   }, [selectedFile]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
+
+    // Validate field and update validation errors
+    const fieldError = validateField(name, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    // Mark field as touched
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    // Validate field on blur
+    const fieldError = validateField(name, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
   };
 
   const handleFileChange = (e) => {
@@ -108,6 +164,30 @@ const CreatePost = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Mark all required fields as touched
+    setTouched({
+      title: true,
+      content: true,
+    });
+
+    // Validate all required fields
+    const errors = {
+      title: validateField('title', title),
+      content: validateField('content', content),
+    };
+    setValidationErrors(errors);
+
+    // Check if there are any errors
+    if (Object.values(errors).some(err => err)) {
+      // Scroll to first error
+      const firstError = Object.keys(errors).find(key => errors[key]);
+      const errorElement = document.querySelector(`[name="${firstError}"]`);
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    
     let imageData = { url: '', publicId: '' };
     
     // Upload image if selected
@@ -136,32 +216,75 @@ const CreatePost = () => {
     dispatch(createPost(postData));
   };
 
+  // Helper to get input border class
+  const getInputClass = (fieldName) => {
+    const baseClass = 'input';
+    if (touched[fieldName] && validationErrors[fieldName]) {
+      return `${baseClass} border-red-500 focus:ring-red-500 focus:border-red-500`;
+    }
+    if (touched[fieldName] && !validationErrors[fieldName]) {
+      return `${baseClass} border-green-500 focus:ring-green-500 focus:border-green-500`;
+    }
+    return baseClass;
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="card space-y-6">
         <h2 className="text-2xl font-bold">Create Anonymous Post</h2>
 
         {message && (
-          <div className={`px-4 py-3 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {message}
+          <div className={`px-4 py-3 rounded flex items-start ${needsModeration ? 'bg-amber-100 text-amber-800 border border-amber-300' : isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {needsModeration ? (
+              <FiAlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            ) : (
+              <FiCheckCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium">{message}</p>
+              {needsModeration && (
+                <p className="text-sm mt-1 opacity-80">
+                  Your post will be visible again once an admin reviews and approves it.
+                </p>
+              )}
+            </div>
+            {needsModeration && (
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="ml-4 px-3 py-1 text-sm bg-amber-200 hover:bg-amber-300 text-amber-800 rounded transition-colors"
+              >
+                Go to Home
+              </button>
+            )}
           </div>
         )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Title *
+            Title <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             name="title"
             value={title}
             onChange={handleChange}
-            className="input"
+            onBlur={handleBlur}
+            className={getInputClass('title')}
             placeholder="What's on your mind?"
             maxLength={200}
-            required
           />
-          <p className="text-sm text-gray-500 mt-1">{title.length}/200 characters</p>
+          <p className="text-sm text-gray-500 mt-1 flex justify-between">
+            <span>{title.length}/200 characters</span>
+            {touched.title && validationErrors.title && (
+              <span className="text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.title}
+              </span>
+            )}
+          </p>
         </div>
 
         <div>
@@ -184,18 +307,28 @@ const CreatePost = () => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Content *
+            Content <span className="text-red-500">*</span>
           </label>
           <textarea
             name="content"
             value={content}
             onChange={handleChange}
-            className="input min-h-[200px] resize-y"
+            onBlur={handleBlur}
+            className={getInputClass('content')}
             placeholder="Share your thoughts anonymously..."
             maxLength={10000}
-            required
           />
-          <p className="text-sm text-gray-500 mt-1">{content.length}/10000 characters</p>
+          <p className="text-sm text-gray-500 mt-1 flex justify-between">
+            <span>{content.length}/10000 characters</span>
+            {touched.content && validationErrors.content && (
+              <span className="text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.content}
+              </span>
+            )}
+          </p>
         </div>
 
         <div>
@@ -337,8 +470,8 @@ const CreatePost = () => {
           </button>
           <button
             type="submit"
-            disabled={isLoading || !title.trim() || !content.trim()}
-            className="btn btn-primary flex-1"
+            disabled={isLoading || !isFormValid()}
+            className={`btn flex-1 ${!isFormValid() ? 'opacity-50 cursor-not-allowed' : 'btn-primary'}`}
           >
             {isLoading ? 'Publishing...' : 'Publish Anonymously'}
           </button>

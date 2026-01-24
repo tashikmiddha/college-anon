@@ -9,7 +9,12 @@ import {
   likePost,
   getMyPosts,
   reportPost,
-  uploadImage
+  uploadImage,
+  createComment,
+  getComments,
+  likeComment,
+  deleteComment,
+  getMyComments
 } from '../controllers/postController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { postLimiter } from '../middleware/rateLimiter.js';
@@ -46,6 +51,13 @@ router.delete('/:id', protect, deletePost);
 router.post('/:id/like', protect, likePost);
 router.get('/user/my-posts', protect, getMyPosts);
 router.post('/:id/report', protect, reportPost);
+
+// Comment routes
+router.get('/:id/comments', protect, getComments);
+router.post('/:id/comments', protect, createComment);
+router.post('/comments/:id/like', protect, likeComment);
+router.delete('/comments/:id', protect, deleteComment);
+router.get('/user/my-comments', protect, getMyComments);
 
 export default router;
 

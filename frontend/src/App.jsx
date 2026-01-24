@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
+import About from './pages/About';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Create from './pages/Create';
@@ -11,6 +12,7 @@ import PostDetail from './pages/PostDetail';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Premium from './pages/Premium';
+import Payment from './pages/Payment';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyEmailInfo from './pages/VerifyEmailInfo';
 import ForgotPassword from './pages/ForgotPassword';
@@ -82,6 +84,7 @@ function App() {
       <main>
         <Routes>
           {/* Public Routes */}
+          <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 <Route path="/verify-email/:token" element={<VerifyEmail />} />
@@ -127,6 +130,16 @@ function App() {
               <RouteWrapper>
                 <ProtectedRoute>
                   <Premium />
+                </ProtectedRoute>
+              </RouteWrapper>
+            }
+          />
+          <Route
+            path="/payment/:planId?"
+            element={
+              <RouteWrapper>
+                <ProtectedRoute>
+                  <Payment />
                 </ProtectedRoute>
               </RouteWrapper>
             }

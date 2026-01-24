@@ -1,20 +1,73 @@
-import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Link, Navigate } from 'react-router-dom';
 import { adminAPI } from '../features/admin/adminAPI';
+import { fetchAllFeedbacks, resolveFeedback, deleteFeedback, fetchAllComments, deleteComment } from '../features/admin/adminSlice';
 import PostCard from '../components/PostCard';
-import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock, FiStar, FiEdit2 } from 'react-icons/fi';
+import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock, FiStar, FiEdit2, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
 import { allColleges } from '../utils/colleges';
 
+// Custom hook for intersection observer
+const useInfiniteScroll = (callback, isLoading, hasMore) => {
+  const observerRef = useRef(null);
+  const lastElementRef = useCallback(
+    (node) => {
+      if (isLoading) return;
+      
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          callback();
+        }
+      });
+
+      if (node) {
+        observerRef.current.observe(node);
+      }
+    },
+    [isLoading, hasMore, callback]
+  );
+
+  return lastElementRef;
+};
+
 const Admin = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { allFeedbacks: reduxFeedbacks, allComments: reduxComments } = useSelector((state) => state.admin);
   const [activeTab, setActiveTab] = useState('stats');
   const [stats, setStats] = useState(null);
+  
+  // Pagination state for each tab
   const [posts, setPosts] = useState([]);
+  const [postsPage, setPostsPage] = useState(1);
+  const [postsHasMore, setPostsHasMore] = useState(true);
+  
   const [reports, setReports] = useState([]);
+  const [reportsPage, setReportsPage] = useState(1);
+  const [reportsHasMore, setReportsHasMore] = useState(true);
+  
   const [users, setUsers] = useState([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersHasMore, setUsersHasMore] = useState(true);
+  
   const [premiumUsers, setPremiumUsers] = useState([]);
+  const [premiumPage, setPremiumPage] = useState(1);
+  const [premiumHasMore, setPremiumHasMore] = useState(true);
+  
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacksPage, setFeedbacksPage] = useState(1);
+  const [feedbacksHasMore, setFeedbacksHasMore] = useState(true);
+  
+  const [comments, setComments] = useState([]);
+  const [commentsPage, setCommentsPage] = useState(1);
+  const [commentsHasMore, setCommentsHasMore] = useState(true);
+  
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -27,15 +80,71 @@ const Admin = () => {
   const [postFilter, setPostFilter] = useState('all');
   const [collegeFilter, setCollegeFilter] = useState('');
   const [premiumStatusFilter, setPremiumStatusFilter] = useState('');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('');
+  const [feedbackTypeFilter, setFeedbackTypeFilter] = useState('');
+  const [showResolveFeedbackModal, setShowResolveFeedbackModal] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [feedbackAdminNotes, setFeedbackAdminNotes] = useState('');
 
+  // Reset pagination when filters change
   useEffect(() => {
     if (user?.isAdmin) {
-      fetchAdminData();
+      resetAndFetchData();
     }
-  }, [user, activeTab, postFilter, collegeFilter, premiumStatusFilter]);
+  }, [user, activeTab, postFilter, collegeFilter, premiumStatusFilter, feedbackStatusFilter, feedbackTypeFilter]);
 
-  const fetchAdminData = async () => {
+  const resetAndFetchData = async () => {
     setLoading(true);
+    // Reset pagination state for current tab
+    resetPagination(activeTab);
+    await fetchAdminData(1, true);
+    setLoading(false);
+  };
+
+  const resetPagination = (tab) => {
+    switch (tab) {
+      case 'posts':
+        setPosts([]);
+        setPostsPage(1);
+        setPostsHasMore(true);
+        break;
+      case 'reports':
+        setReports([]);
+        setReportsPage(1);
+        setReportsHasMore(true);
+        break;
+      case 'users':
+        setUsers([]);
+        setUsersPage(1);
+        setUsersHasMore(true);
+        break;
+      case 'premium':
+        setPremiumUsers([]);
+        setPremiumPage(1);
+        setPremiumHasMore(true);
+        break;
+      case 'feedbacks':
+        setFeedbacks([]);
+        setFeedbacksPage(1);
+        setFeedbacksHasMore(true);
+        break;
+      case 'comments':
+        setComments([]);
+        setCommentsPage(1);
+        setCommentsHasMore(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const fetchAdminData = async (page = 1, isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       switch (activeTab) {
         case 'stats':
@@ -50,27 +159,78 @@ const Admin = () => {
           if (collegeFilter) {
             filter.college = collegeFilter;
           }
-          const postsData = await adminAPI.getAllPosts(filter);
-          setPosts(postsData.posts);
+          const postsData = await adminAPI.getPosts({ ...filter, page, limit: 20 });
+          if (page === 1) {
+            setPosts(postsData.posts);
+          } else {
+            setPosts(prev => [...prev, ...postsData.posts]);
+          }
+          setPostsPage(page);
+          setPostsHasMore(postsData.hasMore);
           break;
         case 'reports':
-          const reportsData = await adminAPI.getReports({ college: collegeFilter || undefined });
-          setReports(reportsData);
+          const reportsData = await adminAPI.getReports({ college: collegeFilter || undefined, page, limit: 20 });
+          if (page === 1) {
+            setReports(reportsData.reports);
+          } else {
+            setReports(prev => [...prev, ...reportsData.reports]);
+          }
+          setReportsPage(page);
+          setReportsHasMore(reportsData.hasMore);
           break;
         case 'users':
-          const usersData = await adminAPI.getUsers({ college: collegeFilter || undefined });
-          setUsers(usersData);
+          const usersData = await adminAPI.getUsers({ college: collegeFilter || undefined, page, limit: 20 });
+          if (page === 1) {
+            setUsers(usersData.users);
+          } else {
+            setUsers(prev => [...prev, ...usersData.users]);
+          }
+          setUsersPage(page);
+          setUsersHasMore(usersData.hasMore);
           break;
         case 'premium':
-          const premiumParams = {};
+          const premiumParams = { page, limit: 20 };
           if (collegeFilter) {
             premiumParams.college = collegeFilter;
           }
           if (premiumStatusFilter) {
             premiumParams.status = premiumStatusFilter;
           }
-          const premiumData = await adminAPI.getPremiumUsers(premiumParams);
-          setPremiumUsers(premiumData);
+          const premiumDataRes = await adminAPI.getPremiumUsers(premiumParams);
+          if (page === 1) {
+            setPremiumUsers(premiumDataRes.users);
+          } else {
+            setPremiumUsers(prev => [...prev, ...premiumDataRes.users]);
+          }
+          setPremiumPage(page);
+          setPremiumHasMore(premiumDataRes.hasMore);
+          break;
+        case 'feedbacks':
+          const feedbackParams = { page, limit: 20, college: collegeFilter || undefined };
+          if (feedbackStatusFilter) {
+            feedbackParams.status = feedbackStatusFilter;
+          }
+          if (feedbackTypeFilter) {
+            feedbackParams.type = feedbackTypeFilter;
+          }
+          const feedbacksData = await adminAPI.getAllFeedbacks(feedbackParams);
+          if (page === 1) {
+            setFeedbacks(feedbacksData.feedbacks);
+          } else {
+            setFeedbacks(prev => [...prev, ...feedbacksData.feedbacks]);
+          }
+          setFeedbacksPage(page);
+          setFeedbacksHasMore(feedbacksData.hasMore);
+          break;
+        case 'comments':
+          const commentsData = await adminAPI.getAllComments({ college: collegeFilter || undefined, page, limit: 20 });
+          if (page === 1) {
+            setComments(commentsData.comments);
+          } else {
+            setComments(prev => [...prev, ...commentsData.comments]);
+          }
+          setCommentsPage(page);
+          setCommentsHasMore(commentsData.hasMore);
           break;
         default:
           break;
@@ -78,8 +238,77 @@ const Admin = () => {
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
     }
-    setLoading(false);
+    
+    if (isInitialLoad) {
+      setLoading(false);
+    } else {
+      setLoadingMore(false);
+    }
   };
+
+  // Load more functions for each tab
+  const loadMorePosts = () => {
+    if (!loadingMore && postsHasMore) {
+      fetchAdminData(postsPage + 1);
+    }
+  };
+
+  const loadMoreReports = () => {
+    if (!loadingMore && reportsHasMore) {
+      fetchAdminData(reportsPage + 1);
+    }
+  };
+
+  const loadMoreUsers = () => {
+    if (!loadingMore && usersHasMore) {
+      fetchAdminData(usersPage + 1);
+    }
+  };
+
+  const loadMorePremium = () => {
+    if (!loadingMore && premiumHasMore) {
+      fetchAdminData(premiumPage + 1);
+    }
+  };
+
+  const loadMoreFeedbacks = () => {
+    if (!loadingMore && feedbacksHasMore) {
+      fetchAdminData(feedbacksPage + 1);
+    }
+  };
+
+  const loadMoreComments = () => {
+    if (!loadingMore && commentsHasMore) {
+      fetchAdminData(commentsPage + 1);
+    }
+  };
+
+  // Intersection observer refs for each tab
+  const postsRef = useInfiniteScroll(loadMorePosts, loadingMore, postsHasMore);
+  const reportsRef = useInfiniteScroll(loadMoreReports, loadingMore, reportsHasMore);
+  const usersRef = useInfiniteScroll(loadMoreUsers, loadingMore, usersHasMore);
+  const premiumRef = useInfiniteScroll(loadMorePremium, loadingMore, premiumHasMore);
+  const feedbacksRef = useInfiniteScroll(loadMoreFeedbacks, loadingMore, feedbacksHasMore);
+  const commentsRef = useInfiniteScroll(loadMoreComments, loadingMore, commentsHasMore);
+
+  // Loading indicator component
+  const LoadingMoreIndicator = () => (
+    <div className="flex justify-center items-center py-4">
+      <FiLoader className="animate-spin text-primary-600 w-6 h-6" />
+      <span className="ml-2 text-gray-600">Loading more...</span>
+    </div>
+  );
+
+  // End of results indicator
+  const EndOfResults = ({ total }) => (
+    <div className="text-center py-4 text-gray-500">
+      {total > 0 ? (
+        <span>You've reached the end ({total} total items)</span>
+      ) : (
+        <span>No items found</span>
+      )}
+    </div>
+  );
 
   const handleModeratePost = async (postId, status) => {
     try {
@@ -93,7 +322,11 @@ const Admin = () => {
   const handleResolveReport = async (reportId, status) => {
     try {
       await adminAPI.resolveReport(reportId, { status });
-      fetchAdminData();
+      // Remove the resolved/dismissed report from the local state
+      setReports(prev => prev.filter(r => r._id !== reportId));
+      // Show success message
+      const message = status === 'resolved' ? 'Report resolved successfully!' : 'Report dismissed!';
+      alert(message);
     } catch (error) {
       alert(error.message);
     }
@@ -181,7 +414,8 @@ const Admin = () => {
     if (window.confirm('Are you sure you want to revoke premium access from this user?')) {
       try {
         await adminAPI.revokePremium(userId);
-        fetchAdminData();
+        // Refresh current tab's data
+        resetAndFetchData();
       } catch (error) {
         alert(error.message);
       }
@@ -199,6 +433,51 @@ const Admin = () => {
     }
   };
 
+  const handleResolveFeedback = async (feedback) => {
+    setSelectedFeedback(feedback);
+    setShowResolveFeedbackModal(true);
+  };
+
+  const submitResolveFeedback = async () => {
+    if (!selectedFeedback) return;
+    try {
+      await dispatch(resolveFeedback({ 
+        id: selectedFeedback._id, 
+        adminNotes: feedbackAdminNotes 
+      })).unwrap();
+      setShowResolveFeedbackModal(false);
+      setSelectedFeedback(null);
+      setFeedbackAdminNotes('');
+      fetchAdminData();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId) => {
+    if (window.confirm('Are you sure you want to delete this feedback?')) {
+      try {
+        await dispatch(deleteFeedback(feedbackId)).unwrap();
+        fetchAdminData();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (window.confirm('Are you sure you want to delete this comment?')) {
+      try {
+        await dispatch(deleteComment(commentId)).unwrap();
+        // Remove the deleted comment from local state
+        setComments(prev => prev.filter(c => c._id !== commentId));
+        alert('Comment deleted successfully!');
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
   if (!user || !user.isAdmin) {
     return <Navigate to="/" />;
   }
@@ -207,6 +486,8 @@ const Admin = () => {
     { id: 'stats', label: 'Dashboard', icon: FiFileText },
     { id: 'posts', label: 'Posts', icon: FiCheck },
     { id: 'reports', label: 'Reports', icon: FiFlag },
+    { id: 'feedbacks', label: 'Feedbacks', icon: FiMessageSquare },
+    { id: 'comments', label: 'Comments', icon: FiMessageSquare },
     { id: 'users', label: 'Users', icon: FiUsers },
     { id: 'premium', label: 'Premium', icon: FiStar },
   ];
@@ -325,6 +606,61 @@ const Admin = () => {
               >
                 <FiStar className="mr-1" />
                 Grant Premium
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve Feedback Modal */}
+      {showResolveFeedbackModal && selectedFeedback && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Resolve Feedback</h3>
+            <p className="text-gray-600 mb-4">
+              Resolving feedback from <strong>{selectedFeedback.user?.anonId || 'Unknown'}</strong>
+            </p>
+            
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Type:</strong> <span className="capitalize">{selectedFeedback.type}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Message:</strong>
+              </p>
+              <p className="text-sm text-gray-700 mt-1 p-2 bg-white rounded border">
+                {selectedFeedback.message}
+              </p>
+            </div>
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Admin Notes (optional - visible to user)
+            </label>
+            <textarea
+              value={feedbackAdminNotes}
+              onChange={(e) => setFeedbackAdminNotes(e.target.value)}
+              className="w-full border rounded-lg p-2 mb-4"
+              rows="3"
+              placeholder="Add notes about how this was handled..."
+            />
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowResolveFeedbackModal(false);
+                  setSelectedFeedback(null);
+                  setFeedbackAdminNotes('');
+                }}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitResolveFeedback}
+                className="btn bg-green-600 text-white hover:bg-green-700"
+              >
+                <FiCheckCircle className="mr-1" />
+                Mark as Resolved
               </button>
             </div>
           </div>
@@ -456,8 +792,12 @@ const Admin = () => {
                 <p className="text-gray-600">No posts found.</p>
               ) : (
                 <div className="space-y-4">
-                  {posts.map((post) => (
-                    <div key={post._id} className="card">
+                  {posts.map((post, index) => (
+                    <div 
+                      key={post._id} 
+                      className="card"
+                      ref={index === posts.length - 1 ? postsRef : null}
+                    >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
@@ -519,6 +859,8 @@ const Admin = () => {
                       </div>
                     </div>
                   ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !postsHasMore && posts.length > 0 && <EndOfResults total={posts.length} />}
                 </div>
               )}
             </div>
@@ -532,8 +874,12 @@ const Admin = () => {
                 <p className="text-gray-600">No pending reports.</p>
               ) : (
                 <div className="space-y-4">
-                  {reports.map((report) => (
-                    <div key={report._id} className="card">
+                  {reports.map((report, index) => (
+                    <div 
+                      key={report._id} 
+                      className="card"
+                      ref={index === reports.length - 1 ? reportsRef : null}
+                    >
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <p className="font-medium">Reported by: {report.reporter?.anonId || 'Unknown'}</p>
@@ -569,6 +915,170 @@ const Admin = () => {
                       </Link>
                     </div>
                   ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !reportsHasMore && reports.length > 0 && <EndOfResults total={reports.length} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Feedbacks Tab */}
+          {activeTab === 'feedbacks' && (
+            <div>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={feedbackStatusFilter}
+                    onChange={(e) => setFeedbackStatusFilter(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={feedbackTypeFilter}
+                    onChange={(e) => setFeedbackTypeFilter(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="">All</option>
+                    <option value="bug">Bug</option>
+                    <option value="feature">Feature Request</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold mb-4">All Feedbacks</h2>
+              {feedbacks.length === 0 ? (
+                <p className="text-gray-600">No feedbacks found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {feedbacks.map((feedback, index) => (
+                    <div 
+                      key={feedback._id} 
+                      className="card"
+                      ref={index === feedbacks.length - 1 ? feedbacksRef : null}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              feedback.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {feedback.status === 'pending' ? 'Pending Review' : feedback.status}
+                            </span>
+                            <span className="text-sm text-gray-500 capitalize">
+                              {feedback.type}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            From: {feedback.user?.anonId || 'Unknown'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            College: {feedback.user?.college || 'N/A'}
+                          </p>
+                          <p className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
+                            {feedback.message}
+                          </p>
+                          {feedback.adminNotes && (
+                            <p className="text-sm text-green-700 mt-2 p-2 bg-green-50 rounded">
+                              <strong>Admin Note:</strong> {feedback.adminNotes}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">
+                            Submitted: {new Date(feedback.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex space-x-2 flex-wrap">
+                          {feedback.status === 'pending' && (
+                            <button
+                              onClick={() => handleResolveFeedback(feedback)}
+                              className="btn bg-green-100 text-green-700 hover:bg-green-200 text-sm flex items-center gap-1"
+                            >
+                              <FiCheckCircle /> Resolve
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteFeedback(feedback._id)}
+                            className="btn bg-red-100 text-red-700 hover:bg-red-200 text-sm flex items-center gap-1"
+                          >
+                            <FiTrash2 /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !feedbacksHasMore && feedbacks.length > 0 && <EndOfResults total={feedbacks.length} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Comments Tab */}
+          {activeTab === 'comments' && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4">All Comments</h2>
+              {comments.length === 0 ? (
+                <p className="text-gray-600">No comments found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {comments.map((comment, index) => (
+                    <div 
+                      key={comment._id} 
+                      className="card"
+                      ref={index === comments.length - 1 ? commentsRef : null}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className="font-medium text-sm">
+                              {comment.author?.anonId || 'Unknown'}
+                            </span>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-sm text-gray-500">
+                              {comment.author?.college || 'N/A'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 p-3 bg-gray-50 rounded">
+                            {comment.content}
+                          </p>
+                          <div className="mt-2 flex items-center gap-4">
+                            <span className="text-xs text-gray-400">
+                              Created: {new Date(comment.createdAt).toLocaleString()}
+                            </span>
+                            {comment.likeCount > 0 && (
+                              <span className="text-xs text-gray-500">
+                                {comment.likeCount} likes
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteComment(comment._id)}
+                          className="btn bg-red-100 text-red-700 hover:bg-red-200 text-sm flex items-center gap-1"
+                        >
+                          <FiTrash2 /> Delete
+                        </button>
+                      </div>
+                      <Link
+                        to={`/post/${comment.post?._id}`}
+                        className="text-primary-600 hover:underline text-sm flex items-center gap-1"
+                      >
+                        View Post: {comment.post?.title || 'Unknown Post'}
+                      </Link>
+                    </div>
+                  ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !commentsHasMore && comments.length > 0 && <EndOfResults total={comments.length} />}
                 </div>
               )}
             </div>
@@ -592,8 +1102,12 @@ const Admin = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
-                      <tr key={u._id} className={`border-b ${u.isBlocked ? 'bg-red-50' : ''}`}>
+                    {users.map((u, index) => (
+                      <tr 
+                        key={u._id} 
+                        className={`border-b ${u.isBlocked ? 'bg-red-50' : ''}`}
+                        ref={index === users.length - 1 ? usersRef : null}
+                      >
                         <td className="p-3">
                           <div>
                             <p className="font-medium">{u.anonId}</p>
@@ -654,18 +1168,31 @@ const Admin = () => {
                                 )}
                               </>
                             )}
-                            <button
-                              onClick={() => handleToggleAdmin(u._id)}
-                              className="text-primary-600 hover:underline text-sm"
-                            >
-                              {u.isAdmin ? 'Remove Admin' : 'Make Admin'}
-                            </button>
+                            {!u.isPremium && (
+                              <button
+                                onClick={() => openPremiumModal(u)}
+                                className="text-yellow-600 hover:underline text-sm flex items-center gap-1"
+                              >
+                                <FiStar /> Grant Premium
+                              </button>
+                            )}
+                            {/* Hide "Remove Admin" for the currently logged-in admin */}
+                            {u._id !== user?._id && (
+                              <button
+                                onClick={() => handleToggleAdmin(u._id)}
+                                className="text-primary-600 hover:underline text-sm"
+                              >
+                                {u.isAdmin ? 'Remove Admin' : 'Make Admin'}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {loadingMore && <LoadingMoreIndicator />}
+                {!loadingMore && !usersHasMore && users.length > 0 && <EndOfResults total={users.length} />}
               </div>
             </div>
           )}
@@ -697,10 +1224,14 @@ const Admin = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {premiumUsers.map((u) => {
+                      {premiumUsers.map((u, index) => {
                         const isExpired = u.premiumExpiresAt && new Date(u.premiumExpiresAt) <= new Date();
                         return (
-                          <tr key={u._id} className={`border-b ${isExpired ? 'bg-orange-50' : ''}`}>
+                          <tr 
+                            key={u._id} 
+                            className={`border-b ${isExpired ? 'bg-orange-50' : ''}`}
+                            ref={index === premiumUsers.length - 1 ? premiumRef : null}
+                          >
                             <td className="p-3">
                               <div>
                                 <p className="font-medium">{u.anonId}</p>
@@ -758,6 +1289,8 @@ const Admin = () => {
                       })}
                     </tbody>
                   </table>
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !premiumHasMore && premiumUsers.length > 0 && <EndOfResults total={premiumUsers.length} />}
                 </div>
               )}
             </div>

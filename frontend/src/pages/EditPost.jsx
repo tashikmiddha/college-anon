@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { updatePost, uploadImage, clearMessage, clearUploadedImage, fetchPost, clearCurrentPost } from '../features/posts/postSlice';
-import { FiImage, FiX, FiUpload, FiTrash2, FiArrowLeft } from 'react-icons/fi';
+import { FiImage, FiX, FiUpload, FiTrash2, FiArrowLeft, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 
 const categories = [
   { value: 'general', label: 'General' },
@@ -21,8 +21,8 @@ const EditPost = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
-  const { currentPost: post, isLoading, isError, isSuccess, message, uploadProgress, uploadedImage, error } = useSelector((state) => state.posts);
+
+  const { currentPost: post, isLoading, isError, isSuccess, message, uploadProgress, uploadedImage, error, needsModeration, moderationRejected, moderationReason } = useSelector((state) => state.posts);
   const { user } = useSelector((state) => state.auth);
   
   const [formData, setFormData] = useState({
@@ -68,9 +68,15 @@ const EditPost = () => {
   useEffect(() => {
     if (isSuccess) {
       dispatch(clearUploadedImage());
-      navigate(`/post/${id}`);
+      // If post needs moderation, show a confirmation and stay on page
+      if (needsModeration) {
+        // Don't auto-clear - let user read the message
+        // Message will stay visible until user navigates away
+      } else {
+        navigate(`/post/${id}`);
+      }
     }
-  }, [isSuccess, dispatch, navigate, id]);
+  }, [isSuccess, needsModeration, dispatch, navigate, id]);
 
   // Set preview URL when file is selected
   useEffect(() => {
@@ -216,8 +222,44 @@ const EditPost = () => {
         </div>
 
         {message && (
-          <div className={`px-4 py-3 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {message}
+          <div className={`px-4 py-3 rounded flex items-start ${
+            moderationRejected 
+              ? 'bg-red-100 text-red-800 border border-red-300' 
+              : needsModeration 
+                ? 'bg-amber-100 text-amber-800 border border-amber-300' 
+                : isError 
+                  ? 'bg-red-100 text-red-700' 
+                  : 'bg-green-100 text-green-700'
+          }`}>
+            {moderationRejected ? (
+              <FiAlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            ) : needsModeration ? (
+              <FiAlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            ) : (
+              <FiCheckCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium">{message}</p>
+              {moderationRejected && moderationReason && (
+                <p className="text-sm mt-1 opacity-80">
+                  <strong>Reason:</strong> {moderationReason}
+                </p>
+              )}
+              {needsModeration && (
+                <p className="text-sm mt-1 opacity-80">
+                  Your post is gone for admin approval. It will be visible again once an admin reviews and approves it.
+                </p>
+              )}
+            </div>
+            {(moderationRejected || needsModeration) && (
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="ml-4 px-3 py-1 text-sm bg-amber-200 hover:bg-amber-300 text-amber-800 rounded transition-colors"
+              >
+                Go to Home
+              </button>
+            )}
           </div>
         )}
 

@@ -39,6 +39,19 @@ export const createCompetition = async (req, res) => {
       });
     }
 
+    // Check for duplicate competition (prevent rapid double submissions)
+    const recentCompetition = await Competition.findOne({
+      author: req.user._id,
+      createdAt: { $gt: new Date(Date.now() - 30000) }, // Last 30 seconds
+      title: title.trim()
+    });
+
+    if (recentCompetition) {
+      return res.status(400).json({ 
+        message: 'A competition with this title was just created. Please wait a moment before creating another.' 
+      });
+    }
+
     // Parse options if it's a string (from FormData)
     let parsedOptions;
     try {
@@ -68,7 +81,7 @@ export const createCompetition = async (req, res) => {
     const duration = parseInt(durationHours) || 24;
     const expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000);
 
-    // Process options with images
+    // Process options with images - make uploads optional
     const processedOptions = await Promise.all(parsedOptions.map(async (opt, index) => {
       let imageData = { url: '', publicId: '' };
       
@@ -84,6 +97,8 @@ export const createCompetition = async (req, res) => {
           };
         } catch (error) {
           console.error(`Error uploading image for option ${index + 1}:`, error);
+          // Continue without image - don't fail the whole request
+          console.log(`Creating competition without image for option ${index + 1}`);
         }
       } else {
         console.log(`No file uploaded for option ${index + 1}`);
@@ -144,6 +159,9 @@ export const getCompetitions = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const filter = { isActive: true };
+
+    // Hide competitions that have expired (voting period is over)
+    filter.expiresAt = { $gt: new Date() };
 
     // Non-admin users can only see their college's competitions
     if (req.user && !req.user.isAdmin) {
@@ -308,7 +326,7 @@ export const getCompetitionResults = async (req, res) => {
 
 // @desc    Delete own competition
 // @route   DELETE /api/competitions/:id
-// @access  Private
+// @access  Private (Owner or Admin)
 export const deleteCompetition = async (req, res) => {
   try {
     const competition = await Competition.findById(req.params.id);
@@ -319,7 +337,7 @@ export const deleteCompetition = async (req, res) => {
 
     // Check ownership or admin
     if (competition.author.toString() !== req.user._id.toString() && !req.user.isAdmin) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ message: 'Not authorized to delete this competition' });
     }
 
     competition.isActive = false;
@@ -329,6 +347,89 @@ export const deleteCompetition = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Update competition (Admin only)
+// @route   PUT /api/competitions/:id
+// @access  Private (Admin only)
+export const updateCompetition = async (req, res) => {
+  try {
+    const { title, description, durationHours, isActive } = req.body;
+    const competition = await Competition.findById(req.params.id);
+
+    if (!competition) {
+      return res.status(404).json({ message: 'Competition not found' });
+    }
+
+    // Only admin can update competitions
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ message: 'Only admins can update competitions' });
+    }
+
+    // Update fields if provided
+    if (title !== undefined) competition.title = title.trim();
+    if (description !== undefined) competition.description = description.trim();
+    if (isActive !== undefined) competition.isActive = isActive;
+
+    // Update expiry time if duration changed
+    if (durationHours !== undefined) {
+      const duration = parseInt(durationHours) || 24;
+      competition.expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000);
+    }
+
+    await competition.save();
+
+    const updatedCompetition = await Competition.findById(competition._id)
+      .populate('author', 'anonId displayName');
+
+    res.json(updatedCompetition);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all competitions (Admin view - includes inactive and all colleges)
+// @route   GET /api/competitions/admin/all
+// @access  Private (Admin only)
+export const getAllCompetitionsAdmin = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Admin sees all competitions including inactive
+    const filter = {};
+
+    // Filter by college if specified
+    if (req.query.college) {
+      filter.college = req.query.college;
+    }
+
+    // Filter by active status
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === 'true';
+    }
+
+    const sortOption = req.query.sort || '-createdAt';
+    const competitions = await Competition.find(filter)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit)
+      .populate('author', 'anonId displayName college');
+
+    const total = await Competition.countDocuments(filter);
+
+    res.json({
+      competitions,
+      page,
+      pages: Math.ceil(total / limit),
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching all competitions (admin):', error);
+    res.status(500).json({ message: 'Failed to fetch competitions' });
   }
 };
 

@@ -210,6 +210,27 @@ export const authAPI = {
       return data;
     }, MAX_RETRIES, RETRY_DELAY);
   },
+
+  checkUserExists: async (email) => {
+    const response = await fetch(`${API_URL}/check-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // User doesn't exist
+      const error = new Error(data.message || 'User not found');
+      error.response = { status: response.status, data };
+      throw error;
+    }
+
+    return data;
+  },
 };
 
 /**
@@ -224,5 +245,34 @@ export const getAuthErrorMessage = (error) => {
  */
 export const requiresLogout = (error) => {
   return error?.response?.status === 401 || error?.response?.status === 403;
+};
+
+// Payment API
+export const paymentAPI = {
+  submitPayment: async ({ planId, planName, amount, screenshot }) => {
+    const formData = new FormData();
+    formData.append('planId', planId);
+    formData.append('planName', planName);
+    formData.append('amount', amount);
+    formData.append('screenshot', screenshot);
+
+    const response = await fetch(`${API_URL}/submit-payment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.message || 'Failed to submit payment');
+      error.response = { status: response.status, data };
+      throw error;
+    }
+
+    return data;
+  },
 };
 

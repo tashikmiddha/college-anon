@@ -6,9 +6,12 @@ import {
   getCompetition,
   voteOnCompetition,
   getCompetitionResults,
-  deleteCompetition
+  deleteCompetition,
+  updateCompetition,
+  getAllCompetitionsAdmin
 } from '../controllers/competitionController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { admin } from '../middleware/adminMiddleware.js';
 
 const router = express.Router();
 
@@ -45,8 +48,15 @@ router.get('/:id/results', getCompetitionResults);
 // Vote on competition
 router.post('/:id/vote', voteOnCompetition);
 
-// Delete competition
+// Delete competition (owner or admin)
 router.delete('/:id', deleteCompetition);
+
+// Admin routes - must be after regular routes
+// Update competition (admin only)
+router.put('/:id', admin, updateCompetition);
+
+// Get all competitions for admin (includes all colleges, inactive)
+router.get('/admin/all', admin, getAllCompetitionsAdmin);
 
 export default router;
 

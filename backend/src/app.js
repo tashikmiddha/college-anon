@@ -13,12 +13,30 @@ import competitionRoutes from './routes/competitionRoutes.js';
 
 const app = express();
 
+// Trust proxy for accurate IP detection behind reverse proxies (Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
 // Connect to database
 connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if(!origin) return callback(null, true);
+    
+    // Allow your EC2 frontend domain/IP
+    // if(origin.includes('13.60.167.157') || origin.includes('amazonaws.com')) {
+    //   return callback(null, true);
+    // }
+    
+    // For development
+    if(origin === 'http://localhost:5173') {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -26,6 +44,15 @@ app.use(cors({
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Increase timeout for large uploads (5 minutes)
+app.use((req, res, next) => {
+  res.setTimeout(300000, () => {
+    console.log('Request has timed out.');
+    res.status(408).json({ message: 'Request timeout - please try with smaller images' });
+  });
+  next();
+});
 
 // Apply rate limiter to all routes
 app.use('/api/', apiLimiter);
@@ -58,6 +85,22 @@ app.use((req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+
+  // Multer file too large error
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      message: 'File too large. Maximum size is 5MB.'
+    });
+  }
+
+  // Multer error
+  if (err.name === 'MulterError') {
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'File upload error'
+    });
+  }
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {

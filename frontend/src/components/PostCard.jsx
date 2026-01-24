@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiHeart, FiMessageSquare, FiFlag, FiClock, FiImage, FiLock } from 'react-icons/fi';
+import { FiHeart, FiMessageSquare, FiFlag, FiClock, FiImage, FiLock, FiAlertCircle, FiStar } from 'react-icons/fi';
 import { likePost, reportPost } from '../features/posts/postSlice';
 import { useState } from 'react';
 
@@ -100,7 +100,30 @@ const PostCard = ({ post }) => {
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryColors[post.category] || 'bg-gray-100 text-gray-800'}`}>
               {post.category}
             </span>
+            {post.moderationStatus === 'pending' && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 flex items-center">
+                <FiClock className="w-3 h-3 mr-1" />
+                Under Review
+              </span>
+            )}
+            {post.moderationStatus === 'flagged' && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 flex items-center">
+                <FiAlertCircle className="w-3 h-3 mr-1" />
+                Flagged
+              </span>
+            )}
+            {post.moderationStatus === 'rejected' && user && user._id === post.author?._id && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 flex items-center">
+                <FiAlertCircle className="w-3 h-3 mr-1" />
+                Rejected
+              </span>
+            )}
             <span className="text-sm text-gray-500">{post.displayName}</span>
+            {post.author?.isPremium && (
+              <span className="inline-flex items-center text-yellow-600 font-medium" title="Premium User">
+                <FiStar className="w-3 h-3 mr-0.5 fill-yellow-500" />
+              </span>
+            )}
             <span className="text-sm text-gray-400">•</span>
             <span className="text-sm text-gray-500">{post.anonId}</span>
           </div>
@@ -156,6 +179,11 @@ const PostCard = ({ post }) => {
           <Link 
             to={`/post/${post._id}`} 
             className={`flex items-center space-x-1 text-sm ${canInteract ? 'text-gray-600 hover:text-primary-600' : 'text-gray-400 cursor-not-allowed'}`}
+            onClick={(e) => {
+              if (!canInteract) {
+                e.preventDefault();
+              }
+            }}
           >
             <FiMessageSquare />
             <span>{post.commentCount || 0}</span>

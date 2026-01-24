@@ -160,6 +160,18 @@ export const resetPassword = createAsyncThunk(
   }
 );
 
+export const checkUserExists = createAsyncThunk(
+  'auth/checkUserExists',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.checkUserExists(email);
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const initialState = {
   user: user || null,
   token: token || null,
@@ -167,6 +179,8 @@ const initialState = {
   isError: false,
   isSuccess: false,
   message: '',
+  isBlocked: false,
+  blockReason: '',
   passwordResetSent: false,
 };
 
@@ -188,6 +202,8 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.isError = false;
       state.message = '';
+      state.isBlocked = false;
+      state.blockReason = '';
     },
     updateUserAnonId: (state, action) => {
       if (state.user) {
@@ -200,6 +216,9 @@ const authSlice = createSlice({
     setNeedsVerification: (state, action) => {
       state.needsVerification = true;
       state.message = action.payload || 'Please verify your email to access this feature';
+    },
+    resetSuccess: (state) => {
+      state.isSuccess = false;
     },
   },
   extraReducers: (builder) => {
@@ -241,7 +260,11 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
         state.isError = true;
+        // Extract isBlocked and blockReason from error response if available
+        const errorData = action.error?.response?.data;
         state.message = action.payload;
+        state.isBlocked = errorData?.isBlocked || false;
+        state.blockReason = errorData?.blockReason || '';
         state.user = null;
         state.needsVerification = false;
       })
@@ -272,8 +295,21 @@ const authSlice = createSlice({
         }
       })
       // Update Profile
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+        state.message = '';
+      })
       .addCase(updateProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
         state.user = action.payload;
+        state.message = 'Profile updated successfully!';
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload || 'Failed to update profile';
       })
       // Refresh Anon ID
       .addCase(refreshAnonId.fulfilled, (state, action) => {
@@ -351,6 +387,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, updateUserAnonId, clearPasswordResetSent, setNeedsVerification } = authSlice.actions;
+export const { logout, clearError, updateUserAnonId, clearPasswordResetSent, setNeedsVerification, resetSuccess } = authSlice.actions;
 export default authSlice.reducer;
 

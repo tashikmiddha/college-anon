@@ -3,6 +3,7 @@ import {
   getStats,
   getAllPosts,
   moderatePost,
+  getMyReports,
   getReports,
   resolveReport,
   getUsers,
@@ -16,14 +17,30 @@ import {
   revokePremium,
   updatePremiumQuotas,
   getPremiumUsers,
-  resetPremiumUsage
+  resetPremiumUsage,
+  submitFeedback,
+  getMyFeedbacks,
+  getAllFeedbacks,
+  resolveFeedback,
+  deleteFeedback,
+  getAllComments,
+  deleteComment
 } from '../controllers/adminController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { admin } from '../middleware/adminMiddleware.js';
 
 const router = express.Router();
 
-// All admin routes require authentication and admin status
+// User's own reports (authentication required, no admin middleware) - MUST be defined BEFORE admin middleware
+router.get('/reports/my-reports', protect, getMyReports);
+
+// User's own feedbacks (authentication required, no admin middleware) - MUST be defined BEFORE admin middleware
+router.get('/feedback/my-feedbacks', protect, getMyFeedbacks);
+
+// User can submit feedback (authentication required, no admin middleware)
+router.post('/feedback', protect, submitFeedback);
+
+// All other admin routes require authentication and admin status
 router.use(protect, admin);
 
 // Dashboard
@@ -52,6 +69,15 @@ router.post('/users/:id/grant-premium', grantPremium);
 router.put('/users/:id/revoke-premium', revokePremium);
 router.put('/users/:id/update-quotas', updatePremiumQuotas);
 router.put('/users/:id/reset-usage', resetPremiumUsage);
+
+// Admin feedback routes (require authentication and admin status)
+router.get('/feedback', getAllFeedbacks);
+router.put('/feedback/:id/resolve', resolveFeedback);
+router.delete('/feedback/:id', deleteFeedback);
+
+// Comments management
+router.get('/comments', getAllComments);
+router.delete('/comments/:id', deleteComment);
 
 export default router;
 

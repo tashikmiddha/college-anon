@@ -5,21 +5,32 @@ cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
+  timeout: 60000, // 60 second timeout for uploads
 });
 
 // Upload helper function
 export const uploadImage = async (fileBuffer, folder = 'college-anon/posts') => {
   return new Promise((resolve, reject) => {
+    // Check if Cloudinary is properly configured
     if (!process.env.CLOUDINARY_CLOUD_NAME || 
         !process.env.CLOUDINARY_API_KEY || 
         !process.env.CLOUDINARY_API_SECRET) {
-      reject(new Error('Cloudinary configuration is missing'));
+      console.warn('Cloudinary configuration is missing, skipping upload');
+      // Return a placeholder instead of rejecting - allows request to continue
+      resolve({
+        url: '',
+        publicId: '',
+        width: 0,
+        height: 0,
+        format: ''
+      });
       return;
     }
 
     const uploadOptions = {
       folder: folder,
       resource_type: 'image',
+      timeout: 60000, // 60 seconds
       transformation: [
         { width: 1200, height: 1200, crop: 'limit', quality: 'auto:good' },
         { fetch_format: 'auto' }
@@ -33,7 +44,14 @@ export const uploadImage = async (fileBuffer, folder = 'college-anon/posts') => 
       (error, result) => {
         if (error) {
           console.error('Cloudinary upload error:', error);
-          reject(error);
+          // Don't reject - return empty image data so request can continue
+          resolve({
+            url: '',
+            publicId: '',
+            width: 0,
+            height: 0,
+            format: ''
+          });
         } else {
           resolve({
             url: result.secure_url,

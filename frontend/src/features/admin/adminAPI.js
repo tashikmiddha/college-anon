@@ -35,6 +35,30 @@ export const adminAPI = {
     return data;
   },
 
+  // Get all posts with pagination support
+  getPosts: async (params = {}) => {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    // Build filter params (status, college) but exclude pagination params
+    const filterParams = {};
+    if (params.status) filterParams.status = params.status;
+    if (params.college) filterParams.college = params.college;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
+    const response = await fetch(`${API_URL}/posts?${queryString}`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch posts');
+    }
+
+    return data;
+  },
+
+  // Legacy method - kept for backward compatibility
   getAllPosts: async (params = {}) => {
     const queryString = buildQueryString(params);
     const response = await fetch(`${API_URL}/posts?${queryString}`, {
@@ -127,8 +151,15 @@ export const adminAPI = {
     return data;
   },
 
+  // Get reports with pagination support
   getReports: async (params = {}) => {
-    const queryString = buildQueryString(params);
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.status) filterParams.status = params.status;
+    if (params.college) filterParams.college = params.college;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
     const response = await fetch(`${API_URL}/reports?${queryString}`, {
       headers: getHeaders(),
     });
@@ -158,8 +189,14 @@ export const adminAPI = {
     return data;
   },
 
+  // Get users with pagination support
   getUsers: async (params = {}) => {
-    const queryString = buildQueryString(params);
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.college) filterParams.college = params.college;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
     const response = await fetch(`${API_URL}/users?${queryString}`, {
       headers: getHeaders(),
     });
@@ -203,9 +240,15 @@ export const adminAPI = {
     return data;
   },
 
-  // Premium management
+  // Premium management with pagination support
   getPremiumUsers: async (params = {}) => {
-    const queryString = buildQueryString(params);
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.college) filterParams.college = params.college;
+    if (params.status) filterParams.status = params.status;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
     const response = await fetch(`${API_URL}/premium-users?${queryString}`, {
       headers: getHeaders(),
     });
@@ -276,6 +319,189 @@ export const adminAPI = {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to reset usage');
+    }
+
+    return data;
+  },
+
+  // User's own reports
+  getMyReports: async () => {
+    const response = await fetch(`${API_URL}/reports/my-reports`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch your reports');
+    }
+
+    return data;
+  },
+
+  // Competition management
+  getAllCompetitions: async (params = {}) => {
+    const queryString = buildQueryString(params);
+    const response = await fetch(`/api/competitions/admin/all?${queryString}`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch competitions');
+    }
+
+    return data;
+  },
+
+  updateCompetition: async (id, data) => {
+    const response = await fetch(`/api/competitions/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to update competition');
+    }
+
+    return result;
+  },
+
+  deleteCompetition: async (id) => {
+    const response = await fetch(`/api/competitions/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to delete competition');
+    }
+
+    return data;
+  },
+
+  // Feedback management with pagination support
+  submitFeedback: async (data) => {
+    const response = await fetch(`${API_URL}/feedback`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to submit feedback');
+    }
+
+    return result;
+  },
+
+  getMyFeedbacks: async () => {
+    const response = await fetch(`${API_URL}/feedback/my-feedbacks`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch your feedbacks');
+    }
+
+    return data;
+  },
+
+  // Get all feedbacks with pagination support
+  getAllFeedbacks: async (params = {}) => {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.status) filterParams.status = params.status;
+    if (params.type) filterParams.type = params.type;
+    if (params.college) filterParams.college = params.college;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
+    const response = await fetch(`${API_URL}/feedback?${queryString}`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch feedbacks');
+    }
+
+    return data;
+  },
+
+  resolveFeedback: async (id, data) => {
+    const response = await fetch(`${API_URL}/feedback/${id}/resolve`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to resolve feedback');
+    }
+
+    return result;
+  },
+
+  deleteFeedback: async (id) => {
+    const response = await fetch(`${API_URL}/feedback/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to delete feedback');
+    }
+
+    return data;
+  },
+
+  // Comments management with pagination support
+  getAllComments: async (params = {}) => {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.college) filterParams.college = params.college;
+    
+    const queryString = buildQueryString({ ...filterParams, page, limit });
+    const response = await fetch(`${API_URL}/comments?${queryString}`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch comments');
+    }
+
+    return data;
+  },
+
+  deleteComment: async (id) => {
+    const response = await fetch(`${API_URL}/comments/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to delete comment');
     }
 
     return data;

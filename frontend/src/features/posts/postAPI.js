@@ -190,16 +190,135 @@ export const postAPI = {
   },
 
   reportPost: async (id, reportData) => {
+    const { reason, description } = reportData;
+
+    // Client-side validation
+    const validReasons = ['spam', 'harassment', 'hate-speech', 'violence', 'misinformation', 'inappropriate', 'other'];
+    if (!reason) {
+      throw new Error('Please select a reason for reporting this post');
+    }
+    if (!validReasons.includes(reason)) {
+      throw new Error('Invalid report reason selected');
+    }
+    if (description && description.length > 500) {
+      throw new Error('Description cannot exceed 500 characters');
+    }
+
     const response = await fetch(`${API_URL}/${id}/report`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(reportData),
+      body: JSON.stringify({ reason, description }),
+    });
+
+    // Try to parse the response as JSON
+    const contentType = response.headers.get('content-type');
+    let data;
+
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      console.error('Non-JSON response:', text);
+      throw new Error('Server returned an invalid response');
+    }
+
+    if (!response.ok) {
+      // Handle specific error cases with user-friendly messages
+      if (response.status === 400) {
+        if (data.message?.includes('already reported')) {
+          throw new Error('You have already reported this post');
+        }
+        if (data.message?.includes('reason is required')) {
+          throw new Error('Please select a reason for reporting');
+        }
+        throw new Error(data.message || 'Unable to submit report. Please try again.');
+      }
+      if (response.status === 403) {
+        throw new Error(data.message || 'You can only report posts from your college');
+      }
+      if (response.status === 404) {
+        throw new Error('Post not found');
+      }
+      if (response.status >= 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+      throw new Error(data.message || 'Failed to report post');
+    }
+
+    return data;
+  },
+
+  // Comments API
+  getComments: async (postId, params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await fetch(`${API_URL}/${postId}/comments?${queryParams}`, {
+      headers: getHeaders(),
     });
     
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to report post');
+      throw new Error(data.message || 'Failed to fetch comments');
+    }
+    
+    return data;
+  },
+
+  createComment: async (postId, content) => {
+    const response = await fetch(`${API_URL}/${postId}/comments`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ content }),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create comment');
+    }
+    
+    return data;
+  },
+
+  likeComment: async (commentId) => {
+    const response = await fetch(`${API_URL}/comments/${commentId}/like`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to like comment');
+    }
+    
+    return data;
+  },
+
+  deleteComment: async (commentId) => {
+    const response = await fetch(`${API_URL}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to delete comment');
+    }
+    
+    return data;
+  },
+
+  getMyComments: async () => {
+    const response = await fetch(`${API_URL}/user/my-comments`, {
+      headers: getHeaders(),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch your comments');
     }
     
     return data;

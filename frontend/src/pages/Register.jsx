@@ -16,6 +16,11 @@ const Register = () => {
   const [error, setError] = useState('');
   const [collegeSearch, setCollegeSearch] = useState('');
   const [showCollegeDropdown, setShowCollegeDropdown] = useState(false);
+  
+  // Track which fields have been touched for validation
+  const [touched, setTouched] = useState({});
+  // Track validation errors
+  const [validationErrors, setValidationErrors] = useState({});
 
   const { email, password, confirmPassword, college, displayName } = formData;
   const dispatch = useDispatch();
@@ -26,6 +31,40 @@ const Register = () => {
   const filteredColleges = allColleges.filter(c => 
     c.toLowerCase().includes(collegeSearch.toLowerCase())
   );
+
+  // Validate individual fields
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'email':
+        if (!value.trim()) return 'Email is required';
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) return 'Please enter a valid email address';
+        return '';
+      case 'password':
+        if (!value) return 'Password is required';
+        if (value.length < 6) return 'Password must be at least 6 characters';
+        return '';
+      case 'confirmPassword':
+        if (!value) return 'Please confirm your password';
+        if (value !== password) return 'Passwords do not match';
+        return '';
+      case 'college':
+        if (!value) return 'Please select your college';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  // Check if form is valid
+  const isFormValid = () => {
+    return (
+      validateField('email', email) === '' &&
+      validateField('password', password) === '' &&
+      validateField('confirmPassword', confirmPassword) === '' &&
+      validateField('college', college) === ''
+    );
+  };
 
   useEffect(() => {
     if (authError) {
@@ -41,16 +80,40 @@ const Register = () => {
   }, [authError, message, isSuccess, dispatch, navigate]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: value,
     });
     setError('');
 
+    // Validate field and update validation errors
+    const fieldError = validateField(name, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
+
     // Update college search when college field changes
-    if (e.target.name === 'college') {
-      setCollegeSearch(e.target.value);
+    if (name === 'college') {
+      setCollegeSearch(value);
     }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    // Mark field as touched
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    // Validate field on blur
+    const fieldError = validateField(name, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: fieldError
+    }));
   };
 
   const handleCollegeSelect = (collegeName) => {
@@ -61,24 +124,36 @@ const Register = () => {
     setCollegeSearch(collegeName);
     setShowCollegeDropdown(false);
     setError('');
+    // Clear college validation error
+    setValidationErrors(prev => ({
+      ...prev,
+      college: ''
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    // Mark all fields as touched to show all errors
+    setTouched({
+      email: true,
+      password: true,
+      confirmPassword: true,
+      college: true,
+    });
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
+    // Validate all fields
+    const errors = {
+      email: validateField('email', email),
+      password: validateField('password', password),
+      confirmPassword: validateField('confirmPassword', confirmPassword),
+      college: validateField('college', college),
+    };
+    setValidationErrors(errors);
 
-    if (!college) {
-      setError('Please select your college');
+    // Check if there are any errors
+    if (Object.values(errors).some(err => err)) {
       return;
     }
 
@@ -90,6 +165,18 @@ const Register = () => {
     };
 
     dispatch(register(userData));
+  };
+
+  // Helper to get input border class
+  const getInputClass = (fieldName) => {
+    const baseClass = 'input';
+    if (touched[fieldName] && validationErrors[fieldName]) {
+      return `${baseClass} border-red-500 focus:ring-red-500 focus:border-red-500`;
+    }
+    if (touched[fieldName] && !validationErrors[fieldName]) {
+      return `${baseClass} border-green-500 focus:ring-green-500 focus:border-green-500`;
+    }
+    return baseClass;
   };
 
   return (
@@ -113,7 +200,7 @@ const Register = () => {
           {/* College Selection Dropdown */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              College *
+              College <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -124,10 +211,10 @@ const Register = () => {
                 setShowCollegeDropdown(true);
               }}
               onFocus={() => setShowCollegeDropdown(true)}
-              className="input"
+              onBlur={handleBlur}
+              className={getInputClass('college')}
               placeholder="Search for your college..."
               autoComplete="off"
-              required
             />
             <p className="text-xs text-gray-500 mt-1">Select from IITs and NITs</p>
             
@@ -157,22 +244,41 @@ const Register = () => {
                 onClick={() => setShowCollegeDropdown(false)}
               />
             )}
+            
+            {/* College validation error */}
+            {touched.college && validationErrors.college && (
+              <p className="text-sm text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.college}
+              </p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email *
+              Email <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
               name="email"
               value={email}
               onChange={handleChange}
-              className="input"
+              onBlur={handleBlur}
+              className={getInputClass('email')}
               placeholder="your.email@example.com"
-              required
             />
             <p className="text-xs text-gray-500 mt-1">Verification link will be sent to this email</p>
+            {/* Email validation error */}
+            {touched.email && validationErrors.email && (
+              <p className="text-sm text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.email}
+              </p>
+            )}
           </div>
 
           <div>
@@ -192,39 +298,57 @@ const Register = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password *
+              Password <span className="text-red-500">*</span>
             </label>
             <input
               type="password"
               name="password"
               value={password}
               onChange={handleChange}
-              className="input"
+              onBlur={handleBlur}
+              className={getInputClass('password')}
               placeholder="••••••••"
-              required
               minLength={6}
             />
+            {/* Password validation error */}
+            {touched.password && validationErrors.password && (
+              <p className="text-sm text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.password}
+              </p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Confirm Password *
+              Confirm Password <span className="text-red-500">*</span>
             </label>
             <input
               type="password"
               name="confirmPassword"
               value={confirmPassword}
               onChange={handleChange}
-              className="input"
+              onBlur={handleBlur}
+              className={getInputClass('confirmPassword')}
               placeholder="••••••••"
-              required
             />
+            {/* Confirm password validation error */}
+            {touched.confirmPassword && validationErrors.confirmPassword && (
+              <p className="text-sm text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.confirmPassword}
+              </p>
+            )}
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-primary w-full py-3"
+            className={`btn w-full py-3 ${!isFormValid() ? 'opacity-50 cursor-not-allowed' : 'btn-primary'}`}
           >
             {isLoading ? 'Creating account...' : 'Create Account'}
           </button>

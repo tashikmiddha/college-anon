@@ -149,5 +149,22 @@ export const competitionAPI = {
     
     return data;
   },
+
+  // Report a competition
+  reportCompetition: async (id, reportData) => {
+    const response = await fetch(`${API_URL}/${id}/report`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(reportData),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to report competition');
+    }
+    
+    return data;
+  },
 };
 

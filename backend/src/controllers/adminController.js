@@ -12,17 +12,23 @@ export const getStats = async (req, res) => {
   try {
     const { college } = req.query;
     
-    // Build filter for college
+    // Build filter for posts - exclude blocked users
     const postFilter = { isActive: true };
-    const userFilter = {};
-    
     if (college) {
       postFilter.college = college;
+    }
+
+    // Get posts count excluding blocked users
+    const postsWithAuthors = await Post.find(postFilter).populate('author', 'isBlocked');
+    const activePosts = postsWithAuthors.filter(p => p.author && !p.author.isBlocked);
+    const postCount = activePosts.length;
+
+    const userFilter = {};
+    if (college) {
       userFilter.college = college;
     }
 
-    const [postCount, userCount, reportCount, pendingPosts] = await Promise.all([
-      Post.countDocuments(postFilter),
+    const [userCount, reportCount, pendingPosts] = await Promise.all([
       User.countDocuments(userFilter),
       Report.countDocuments({ status: 'pending' }),
       Post.countDocuments({ ...postFilter, moderationStatus: 'pending' })
@@ -58,14 +64,39 @@ export const getAllPosts = async (req, res) => {
       filter.college = req.query.college;
     }
 
-    const [posts, total] = await Promise.all([
-      Post.find(filter)
-        .sort('-createdAt')
-        .skip(skip)
-        .limit(limit)
-        .populate('author', 'email anonId displayName'),
-      Post.countDocuments(filter)
+    // Exclude posts from blocked users using aggregation
+    const result = await Post.aggregate([
+      { $match: filter },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author'
+        }
+      },
+      { $unwind: '$author' },
+      { $match: { 'author.isBlocked': false } },
+      {
+        $project: {
+          'author.password': 0,
+          'author.isActive': 0,
+          'author.isBlocked': 0,
+          'author.blockReason': 0,
+          'author.blockedAt': 0
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      }
     ]);
+
+    const posts = result[0].data;
+    const total = result[0].metadata[0]?.total || 0;
 
     res.json({
       posts,
@@ -147,7 +178,12 @@ export const getReports = async (req, res) => {
 
     // Get all reports (not just pending) so admin can see all reports
     const { status } = req.query;
-    const filter = status ? { status } : {};
+    // Filter to only show post reports, not competition reports
+    const filter = { post: { $exists: true, $ne: null } };
+
+    if (status) {
+      filter.status = status;
+    }
 
     const [reports, total] = await Promise.all([
       Report.find(filter)
@@ -818,6 +854,75 @@ export const deleteComment = async (req, res) => {
     }
 
     res.json({ message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get all competition reports
+// @route   GET /api/admin/competition-reports
+// @access  Private/Admin
+export const getAllCompetitionReports = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const { status } = req.query;
+    const filter = { competition: { $exists: true, $ne: null } };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    const [reports, total] = await Promise.all([
+      Report.find(filter)
+        .sort('-createdAt')
+        .skip(skip)
+        .limit(limit)
+        .populate('reporter', 'anonId displayName')
+        .populate('competition'),
+      Report.countDocuments(filter)
+    ]);
+
+    res.json({
+      reports,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+      hasMore: page < Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Resolve competition report
+// @route   PUT /api/admin/competition-reports/:id/resolve
+// @access  Private/Admin
+export const resolveCompetitionReport = async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+    const report = await Report.findById(req.params.id);
+
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found' });
+    }
+
+    // Verify this is a competition report
+    if (!report.competition) {
+      return res.status(400).json({ message: 'This is not a competition report' });
+    }
+
+    report.status = status;
+    report.adminNotes = adminNotes || '';
+    report.reviewedBy = req.user._id;
+    report.reviewedAt = Date.now();
+    await report.save();
+
+    res.json({ message: 'Report resolved', report });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

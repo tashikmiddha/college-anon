@@ -25,10 +25,10 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, Postman)
     if(!origin) return callback(null, true);
     
-    // Allow your EC2 frontend domain/IP
-    // if(origin.includes('13.60.167.157') || origin.includes('amazonaws.com')) {
-    //   return callback(null, true);
-    // }
+    //Allow your EC2 frontend domain/IP
+    if(origin.includes('43.205.207.103') || origin.includes('amazonaws.com')) {
+      return callback(null, true);
+    }
     
     // For development
     if(origin === 'http://localhost:5173') {

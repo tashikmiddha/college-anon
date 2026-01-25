@@ -8,8 +8,11 @@ const reportSchema = new mongoose.Schema({
   },
   post: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post',
-    required: true
+    ref: 'Post'
+  },
+  competition: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Competition'
   },
   reason: {
     type: String,
@@ -42,8 +45,19 @@ const reportSchema = new mongoose.Schema({
   }
 });
 
-// Index for efficient querying
-reportSchema.index({ post: 1, reporter: 1 }, { unique: true });
+// Index for efficient querying - either post or competition must be provided
+reportSchema.index({ post: 1, reporter: 1 }, { sparse: true, unique: true });
+reportSchema.index({ competition: 1, reporter: 1 }, { sparse: true, unique: true });
+reportSchema.index({ status: 1 });
+reportSchema.index({ createdAt: -1 });
+
+// Validate that either post or competition is provided
+reportSchema.pre('save', function(next) {
+  if (!this.post && !this.competition) {
+    return next(new Error('Either post or competition must be provided'));
+  }
+  next();
+});
 
 export default mongoose.model('Report', reportSchema);
 

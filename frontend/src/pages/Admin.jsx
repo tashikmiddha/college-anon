@@ -4,7 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { adminAPI } from '../features/admin/adminAPI';
 import { fetchAllFeedbacks, resolveFeedback, deleteFeedback, fetchAllComments, deleteComment } from '../features/admin/adminSlice';
 import PostCard from '../components/PostCard';
-import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock, FiStar, FiEdit2, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
+import { FiUsers, FiFileText, FiFlag, FiCheck, FiX, FiTrash2, FiShield, FiUnlock, FiStar, FiEdit2, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLoader, FiAward } from 'react-icons/fi';
 import { allColleges } from '../utils/colleges';
 
 // Custom hook for intersection observer
@@ -66,6 +66,14 @@ const Admin = () => {
   const [commentsPage, setCommentsPage] = useState(1);
   const [commentsHasMore, setCommentsHasMore] = useState(true);
   
+  const [competitions, setCompetitions] = useState([]);
+  const [competitionsPage, setCompetitionsPage] = useState(1);
+  const [competitionsHasMore, setCompetitionsHasMore] = useState(true);
+  
+  const [competitionReports, setCompetitionReports] = useState([]);
+  const [competitionReportsPage, setCompetitionReportsPage] = useState(1);
+  const [competitionReportsHasMore, setCompetitionReportsHasMore] = useState(true);
+  
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -78,13 +86,22 @@ const Admin = () => {
     durationDays: 30
   });
   const [postFilter, setPostFilter] = useState('all');
+  const [reportStatusFilter, setReportStatusFilter] = useState('pending');
   const [collegeFilter, setCollegeFilter] = useState('');
   const [premiumStatusFilter, setPremiumStatusFilter] = useState('');
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('');
   const [feedbackTypeFilter, setFeedbackTypeFilter] = useState('');
+  const [competitionReportStatusFilter, setCompetitionReportStatusFilter] = useState('');
+  const [showInactiveCompetitions, setShowInactiveCompetitions] = useState(false);
   const [showResolveFeedbackModal, setShowResolveFeedbackModal] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [feedbackAdminNotes, setFeedbackAdminNotes] = useState('');
+  const [selectedCompetitionReport, setSelectedCompetitionReport] = useState(null);
+  const [showResolveCompetitionReportModal, setShowResolveCompetitionReportModal] = useState(false);
+  const [competitionReportAdminNotes, setCompetitionReportAdminNotes] = useState('');
+  const [selectedPostReport, setSelectedPostReport] = useState(null);
+  const [showResolvePostReportModal, setShowResolvePostReportModal] = useState(false);
+  const [postReportAdminNotes, setPostReportAdminNotes] = useState('');
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -112,6 +129,16 @@ const Admin = () => {
         setReports([]);
         setReportsPage(1);
         setReportsHasMore(true);
+        break;
+      case 'competition-reports':
+        setCompetitionReports([]);
+        setCompetitionReportsPage(1);
+        setCompetitionReportsHasMore(true);
+        break;
+      case 'competitions':
+        setCompetitions([]);
+        setCompetitionsPage(1);
+        setCompetitionsHasMore(true);
         break;
       case 'users':
         setUsers([]);
@@ -169,7 +196,12 @@ const Admin = () => {
           setPostsHasMore(postsData.hasMore);
           break;
         case 'reports':
-          const reportsData = await adminAPI.getReports({ college: collegeFilter || undefined, page, limit: 20 });
+          const reportsData = await adminAPI.getReports({ 
+            college: collegeFilter || undefined, 
+            page, 
+            limit: 20,
+            status: reportStatusFilter
+          });
           if (page === 1) {
             setReports(reportsData.reports);
           } else {
@@ -232,11 +264,46 @@ const Admin = () => {
           setCommentsPage(page);
           setCommentsHasMore(commentsData.hasMore);
           break;
+        case 'competition-reports':
+          const compReportParams = { page, limit: 20 };
+          // Default to showing pending reports only
+          if (competitionReportStatusFilter) {
+            compReportParams.status = competitionReportStatusFilter;
+          } else {
+            compReportParams.status = 'pending';
+          }
+          const compReportsData = await adminAPI.getCompetitionReports(compReportParams);
+          if (page === 1) {
+            setCompetitionReports(compReportsData.reports);
+          } else {
+            setCompetitionReports(prev => [...prev, ...compReportsData.reports]);
+          }
+          setCompetitionReportsPage(page);
+          setCompetitionReportsHasMore(compReportsData.hasMore);
+          break;
+        case 'competitions':
+          const compParams = { page, limit: 20 };
+          if (collegeFilter) {
+            compParams.college = collegeFilter;
+          }
+          console.log('Fetching competitions with params:', compParams);
+          const compsData = await adminAPI.getAllCompetitions(compParams);
+          console.log('Competitions data received:', compsData);
+          if (page === 1) {
+            setCompetitions(compsData.competitions);
+          } else {
+            setCompetitions(prev => [...prev, ...compsData.competitions]);
+          }
+          setCompetitionsPage(page);
+          setCompetitionsHasMore(compsData.hasMore);
+          break;
         default:
           break;
       }
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
+      console.error('Active tab:', activeTab);
+      console.error('Error details:', error.message);
     }
     
     if (isInitialLoad) {
@@ -283,6 +350,18 @@ const Admin = () => {
     }
   };
 
+  const loadMoreCompetitionReports = () => {
+    if (!loadingMore && competitionReportsHasMore) {
+      fetchAdminData(competitionReportsPage + 1);
+    }
+  };
+
+  const loadMoreCompetitions = () => {
+    if (!loadingMore && competitionsHasMore) {
+      fetchAdminData(competitionsPage + 1);
+    }
+  };
+
   // Intersection observer refs for each tab
   const postsRef = useInfiniteScroll(loadMorePosts, loadingMore, postsHasMore);
   const reportsRef = useInfiniteScroll(loadMoreReports, loadingMore, reportsHasMore);
@@ -290,6 +369,8 @@ const Admin = () => {
   const premiumRef = useInfiniteScroll(loadMorePremium, loadingMore, premiumHasMore);
   const feedbacksRef = useInfiniteScroll(loadMoreFeedbacks, loadingMore, feedbacksHasMore);
   const commentsRef = useInfiniteScroll(loadMoreComments, loadingMore, commentsHasMore);
+  const competitionReportsRef = useInfiniteScroll(loadMoreCompetitionReports, loadingMore, competitionReportsHasMore);
+  const competitionsRef = useInfiniteScroll(loadMoreCompetitions, loadingMore, competitionsHasMore);
 
   // Loading indicator component
   const LoadingMoreIndicator = () => (
@@ -319,12 +400,37 @@ const Admin = () => {
     }
   };
 
-  const handleResolveReport = async (reportId, status) => {
+  const handleResolveReport = async (reportId, status, adminNotes = '') => {
     try {
-      await adminAPI.resolveReport(reportId, { status });
+      await adminAPI.resolveReport(reportId, { status, adminNotes });
       // Remove the resolved/dismissed report from the local state
       setReports(prev => prev.filter(r => r._id !== reportId));
       // Show success message
+      const message = status === 'resolved' ? 'Report resolved successfully!' : 'Report dismissed!';
+      alert(message);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const openResolvePostReportModal = (report) => {
+    setSelectedPostReport(report);
+    setShowResolvePostReportModal(true);
+    setPostReportAdminNotes('');
+  };
+
+  const submitResolvePostReport = async (status) => {
+    if (!selectedPostReport) return;
+    try {
+      await adminAPI.resolveReport(selectedPostReport._id, { 
+        status, 
+        adminNotes: postReportAdminNotes 
+      });
+      // Remove the resolved report from the local state
+      setReports(prev => prev.filter(r => r._id !== selectedPostReport._id));
+      setShowResolvePostReportModal(false);
+      setSelectedPostReport(null);
+      setPostReportAdminNotes('');
       const message = status === 'resolved' ? 'Report resolved successfully!' : 'Report dismissed!';
       alert(message);
     } catch (error) {
@@ -478,6 +584,70 @@ const Admin = () => {
     }
   };
 
+  const handleResolveCompetitionReport = async (reportId, status) => {
+    try {
+      await adminAPI.resolveCompetitionReport(reportId, { status });
+      // Remove the resolved/dismissed report from the local state
+      setCompetitionReports(prev => prev.filter(r => r._id !== reportId));
+      // Show success message
+      const message = status === 'resolved' ? 'Report resolved successfully!' : 'Report dismissed!';
+      alert(message);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const openResolveCompetitionReportModal = (report) => {
+    setSelectedCompetitionReport(report);
+    setShowResolveCompetitionReportModal(true);
+    setCompetitionReportAdminNotes('');
+  };
+
+  const submitResolveCompetitionReport = async (status) => {
+    if (!selectedCompetitionReport) return;
+    try {
+      await adminAPI.resolveCompetitionReport(selectedCompetitionReport._id, { 
+        status, 
+        adminNotes: competitionReportAdminNotes 
+      });
+      // Remove the resolved report from the local state
+      setCompetitionReports(prev => prev.filter(r => r._id !== selectedCompetitionReport._id));
+      setShowResolveCompetitionReportModal(false);
+      setSelectedCompetitionReport(null);
+      setCompetitionReportAdminNotes('');
+      const message = status === 'resolved' ? 'Report resolved successfully!' : 'Report dismissed!';
+      alert(message);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const handleHardDeleteCompetition = async (competitionId, competitionTitle) => {
+    if (window.confirm(`⚠️ PERMANENTLY DELETE "${competitionTitle}"?\n\nThis will:\n- Remove the competition completely\n- Delete all associated reports\n- This action CANNOT be undone!`)) {
+      try {
+        await adminAPI.hardDeleteCompetition(competitionId);
+        // Remove the deleted competition from local state
+        setCompetitions(prev => prev.filter(c => c._id !== competitionId));
+        alert('Competition permanently deleted!');
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  };
+
+  const handleToggleCompetitionActive = async (competitionId, currentStatus) => {
+    try {
+      await adminAPI.updateCompetition(competitionId, { isActive: !currentStatus });
+      // Update the competition in local state
+      setCompetitions(prev => prev.map(c => 
+        c._id === competitionId ? { ...c, isActive: !currentStatus } : c
+      ));
+      alert(`Competition ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
   if (!user || !user.isAdmin) {
     return <Navigate to="/" />;
   }
@@ -486,6 +656,8 @@ const Admin = () => {
     { id: 'stats', label: 'Dashboard', icon: FiFileText },
     { id: 'posts', label: 'Posts', icon: FiCheck },
     { id: 'reports', label: 'Reports', icon: FiFlag },
+    { id: 'competition-reports', label: 'Comp. Reports', icon: FiFlag },
+    { id: 'competitions', label: 'Competitions', icon: FiAward },
     { id: 'feedbacks', label: 'Feedbacks', icon: FiMessageSquare },
     { id: 'comments', label: 'Comments', icon: FiMessageSquare },
     { id: 'users', label: 'Users', icon: FiUsers },
@@ -667,6 +839,146 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Resolve Competition Report Modal */}
+      {showResolveCompetitionReportModal && selectedCompetitionReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Resolve Competition Report</h3>
+            <p className="text-gray-600 mb-4">
+              Resolving report from <strong>{selectedCompetitionReport.reporter?.anonId || 'Unknown'}</strong>
+            </p>
+            
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Reason:</strong> <span className="capitalize">{selectedCompetitionReport.reason}</span>
+              </p>
+              {selectedCompetitionReport.description && (
+                <>
+                  <p className="text-sm text-gray-600">
+                    <strong>Description:</strong>
+                  </p>
+                  <p className="text-sm text-gray-700 mt-1 p-2 bg-white rounded border">
+                    {selectedCompetitionReport.description}
+                  </p>
+                </>
+              )}
+              {selectedCompetitionReport.competition && (
+                <div className="mt-3 p-2 bg-white rounded border">
+                  <p className="text-sm font-medium">Competition: {selectedCompetitionReport.competition.title}</p>
+                </div>
+              )}
+            </div>
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Admin Notes (optional)
+            </label>
+            <textarea
+              value={competitionReportAdminNotes}
+              onChange={(e) => setCompetitionReportAdminNotes(e.target.value)}
+              className="w-full border rounded-lg p-2 mb-4"
+              rows="3"
+              placeholder="Add notes about how this was handled..."
+            />
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowResolveCompetitionReportModal(false);
+                  setSelectedCompetitionReport(null);
+                  setCompetitionReportAdminNotes('');
+                }}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => submitResolveCompetitionReport('dismissed')}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => submitResolveCompetitionReport('resolved')}
+                className="btn bg-green-600 text-white hover:bg-green-700"
+              >
+                <FiCheckCircle className="mr-1" />
+                Resolve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve Post Report Modal */}
+      {showResolvePostReportModal && selectedPostReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Resolve Post Report</h3>
+            <p className="text-gray-600 mb-4">
+              Resolving report from <strong>{selectedPostReport.reporter?.anonId || 'Unknown'}</strong>
+            </p>
+            
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Reason:</strong> <span className="capitalize">{selectedPostReport.reason}</span>
+              </p>
+              {selectedPostReport.description && (
+                <>
+                  <p className="text-sm text-gray-600">
+                    <strong>Description:</strong>
+                  </p>
+                  <p className="text-sm text-gray-700 mt-1 p-2 bg-white rounded border">
+                    {selectedPostReport.description}
+                  </p>
+                </>
+              )}
+              {selectedPostReport.post && (
+                <div className="mt-3 p-2 bg-white rounded border">
+                  <p className="text-sm font-medium">Post: {selectedPostReport.post.title || 'No title'}</p>
+                </div>
+              )}
+            </div>
+
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Admin Notes (optional - will be shown to the reporter)
+            </label>
+            <textarea
+              value={postReportAdminNotes}
+              onChange={(e) => setPostReportAdminNotes(e.target.value)}
+              className="w-full border rounded-lg p-2 mb-4"
+              rows="3"
+              placeholder="Add notes about how this was handled..."
+            />
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowResolvePostReportModal(false);
+                  setSelectedPostReport(null);
+                  setPostReportAdminNotes('');
+                }}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => submitResolvePostReport('dismissed')}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => submitResolvePostReport('resolved')}
+                className="btn bg-green-600 text-white hover:bg-green-700"
+              >
+                <FiCheckCircle className="mr-1" />
+                Resolve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex space-x-4 mb-8 border-b overflow-x-auto">
         {tabs.map((tab) => (
@@ -721,12 +1033,14 @@ const Admin = () => {
               </select>
             </div>
           )}
-          {(collegeFilter || premiumStatusFilter) && (
+          {(collegeFilter || premiumStatusFilter || competitionReportStatusFilter || reportStatusFilter) && (
             <div className="flex items-center">
               <button
                 onClick={() => {
                   setCollegeFilter('');
                   setPremiumStatusFilter('');
+                  setCompetitionReportStatusFilter('');
+                  setReportStatusFilter('pending');
                 }}
                 className="text-sm text-gray-600 hover:text-gray-900 flex items-center"
               >
@@ -869,9 +1183,26 @@ const Admin = () => {
           {/* Reports Tab */}
           {activeTab === 'reports' && (
             <div>
-              <h2 className="text-xl font-semibold mb-4">Pending Reports</h2>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={reportStatusFilter}
+                    onChange={(e) => setReportStatusFilter(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="dismissed">Dismissed</option>
+                    <option value="">All</option>
+                  </select>
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold mb-4">Post Reports</h2>
               {reports.length === 0 ? (
-                <p className="text-gray-600">No pending reports.</p>
+                <p className="text-gray-600">No post reports found.</p>
               ) : (
                 <div className="space-y-4">
                   {reports.map((report, index) => (
@@ -881,7 +1212,16 @@ const Admin = () => {
                       ref={index === reports.length - 1 ? reportsRef : null}
                     >
                       <div className="flex justify-between items-start mb-4">
-                        <div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                              report.status === 'dismissed' ? 'bg-gray-100 text-gray-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {report.status === 'pending' ? 'Pending Review' : report.status}
+                            </span>
+                          </div>
                           <p className="font-medium">Reported by: {report.reporter?.anonId || 'Unknown'}</p>
                           <p className="text-sm text-gray-500">
                             Reason: <span className="capitalize">{report.reason}</span>
@@ -891,21 +1231,31 @@ const Admin = () => {
                               Description: {report.description}
                             </p>
                           )}
+                          {report.adminNotes && (
+                            <p className="text-sm text-green-700 mt-2 p-2 bg-green-50 rounded">
+                              <strong>Admin Notes:</strong> {report.adminNotes}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">
+                            Reported: {new Date(report.createdAt).toLocaleString()}
+                          </p>
                         </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleResolveReport(report._id, 'resolved')}
-                            className="btn bg-green-100 text-green-700 hover:bg-green-200"
-                          >
-                            Resolve
-                          </button>
-                          <button
-                            onClick={() => handleResolveReport(report._id, 'dismissed')}
-                            className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          >
-                            Dismiss
-                          </button>
-                        </div>
+                        {report.status === 'pending' && (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => openResolvePostReportModal(report)}
+                              className="btn bg-green-100 text-green-700 hover:bg-green-200"
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              onClick={() => submitResolvePostReport('dismissed')}
+                              className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <Link
                         to={`/post/${report.post?._id}`}
@@ -917,6 +1267,203 @@ const Admin = () => {
                   ))}
                   {loadingMore && <LoadingMoreIndicator />}
                   {!loadingMore && !reportsHasMore && reports.length > 0 && <EndOfResults total={reports.length} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Competition Reports Tab */}
+          {activeTab === 'competition-reports' && (
+            <div>
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={competitionReportStatusFilter}
+                    onChange={(e) => setCompetitionReportStatusFilter(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="dismissed">Dismissed</option>
+                  </select>
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold mb-4">Competition Reports</h2>
+              {competitionReports.length === 0 ? (
+                <p className="text-gray-600">No competition reports found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {competitionReports.map((report, index) => (
+                    <div 
+                      key={report._id} 
+                      className="card"
+                      ref={index === competitionReports.length - 1 ? competitionReportsRef : null}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                              report.status === 'dismissed' ? 'bg-gray-100 text-gray-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {report.status === 'pending' ? 'Pending Review' : report.status}
+                            </span>
+                          </div>
+                          <p className="font-medium">Reported by: {report.reporter?.anonId || 'Unknown'}</p>
+                          <p className="text-sm text-gray-500">
+                            Reason: <span className="capitalize">{report.reason}</span>
+                          </p>
+                          {report.description && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              Description: {report.description}
+                            </p>
+                          )}
+                          {report.competition && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded">
+                              <p className="text-sm font-medium">Competition:</p>
+                              <p className="text-sm text-gray-700">{report.competition.title}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                By: {report.competition.displayName} • {report.competition.anonId}
+                              </p>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">
+                            Reported: {new Date(report.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {report.status === 'pending' && (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => openResolveCompetitionReportModal(report)}
+                              className="btn bg-green-100 text-green-700 hover:bg-green-200"
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              onClick={() => submitResolveCompetitionReport('dismissed')}
+                              className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !competitionReportsHasMore && competitionReports.length > 0 && <EndOfResults total={competitionReports.length} />}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Competitions Tab */}
+          {activeTab === 'competitions' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">All Competitions</h2>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showInactiveCompetitions}
+                      onChange={(e) => {
+                        setShowInactiveCompetitions(e.target.checked);
+                        // Reset and refetch when filter changes
+                        setCompetitions([]);
+                        setCompetitionsPage(1);
+                        setCompetitionsHasMore(true);
+                        fetchAdminData(1, true);
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-600">Show Inactive</span>
+                  </label>
+                </div>
+              </div>
+              {competitions.length === 0 ? (
+                <p className="text-gray-600">No competitions found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {competitions
+                    .filter(comp => showInactiveCompetitions || comp.isActive)
+                    .map((competition, index) => (
+                    <div 
+                      key={competition._id} 
+                      className={`card ${!competition.isActive ? 'opacity-60' : ''}`}
+                      ref={index === competitions.length - 1 ? competitionsRef : null}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              !competition.isActive ? 'bg-gray-100 text-gray-800' :
+                              competition.isActive && new Date(competition.expiresAt) > new Date() ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {!competition.isActive ? 'Inactive' : 
+                                new Date(competition.expiresAt) > new Date() ? 'Active' : 'Expired'}
+                            </span>
+                            <span className="text-sm text-gray-500">{competition.college}</span>
+                          </div>
+                          <h3 className="font-semibold text-lg">{competition.title}</h3>
+                          <p className="text-sm text-gray-500">
+                            By: {competition.displayName} • {competition.anonId}
+                          </p>
+                          {competition.description && (
+                            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                              {competition.description}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-500 mt-2">
+                            Total Votes: {competition.totalVotes || 0}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Created: {new Date(competition.createdAt).toLocaleString()}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Expires: {new Date(competition.expiresAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex space-x-2 flex-wrap">
+                          <button
+                            onClick={() => handleToggleCompetitionActive(competition._id, competition.isActive)}
+                            className={`btn ${competition.isActive ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                          >
+                            {competition.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => handleHardDeleteCompetition(competition._id, competition.title)}
+                            className="btn bg-red-100 text-red-700 hover:bg-red-200"
+                            title="Permanently Delete Competition"
+                          >
+                            <FiTrash2 /> Delete
+                          </button>
+                        </div>
+                      </div>
+                      {/* Options Preview */}
+                      <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Options:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(competition.options || []).map((option, idx) => (
+                            <span 
+                              key={idx}
+                              className="px-3 py-1 bg-gray-100 rounded-full text-sm"
+                            >
+                              {option.name} ({option.voteCount || 0} votes)
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {loadingMore && <LoadingMoreIndicator />}
+                  {!loadingMore && !competitionsHasMore && competitions.length > 0 && <EndOfResults total={competitions.length} />}
                 </div>
               )}
             </div>

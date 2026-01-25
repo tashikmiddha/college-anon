@@ -24,7 +24,9 @@ import {
   resolveFeedback,
   deleteFeedback,
   getAllComments,
-  deleteComment
+  deleteComment,
+  getAllCompetitionReports,
+  resolveCompetitionReport
 } from '../controllers/adminController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { admin } from '../middleware/adminMiddleware.js';
@@ -78,6 +80,10 @@ router.delete('/feedback/:id', deleteFeedback);
 // Comments management
 router.get('/comments', getAllComments);
 router.delete('/comments/:id', deleteComment);
+
+// Competition reports management
+router.get('/competition-reports', getAllCompetitionReports);
+router.put('/competition-reports/:id/resolve', resolveCompetitionReport);
 
 export default router;
 

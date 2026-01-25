@@ -74,6 +74,18 @@ export const deleteCompetition = createAsyncThunk(
   }
 );
 
+export const reportCompetition = createAsyncThunk(
+  'competitions/reportCompetition',
+  async ({ id, reason, description }, { rejectWithValue }) => {
+    try {
+      const response = await competitionAPI.reportCompetition(id, { reason, description });
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const initialState = {
   competitions: [],
   currentCompetition: null,
@@ -201,6 +213,21 @@ const competitionSlice = createSlice({
         }
         state.isSuccess = true;
         state.message = 'Competition deleted successfully!';
+      })
+      // Report Competition
+      .addCase(reportCompetition.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+      })
+      .addCase(reportCompetition.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
+        state.message = 'Competition reported successfully!';
+      })
+      .addCase(reportCompetition.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload;
       });
   },
 });

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchCompetitions, voteOnCompetition, clearMessage } from '../features/competitions/competitionSlice';
-import { FiAward, FiClock, FiHeart, FiPlus, FiStar, FiImage, FiCheck, FiThumbsUp } from 'react-icons/fi';
+import { fetchCompetitions, voteOnCompetition, clearMessage, reportCompetition } from '../features/competitions/competitionSlice';
+import { FiAward, FiClock, FiHeart, FiPlus, FiStar, FiImage, FiCheck, FiThumbsUp, FiFlag, FiX } from 'react-icons/fi';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Competitions = () => {
@@ -21,6 +21,12 @@ const Competitions = () => {
   const isUserLoading = !user;
 
   const [votingStates, setVotingStates] = useState({});
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedCompetition, setSelectedCompetition] = useState(null);
+  const [reportReason, setReportReason] = useState('spam');
+  const [reportDescription, setReportDescription] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   useEffect(() => {
     dispatch(fetchCompetitions());
@@ -34,6 +40,53 @@ const Competitions = () => {
       return () => clearTimeout(timer);
     }
   }, [isError, dispatch]);
+
+  // Clear messages when success
+  useEffect(() => {
+    if (isSuccess) {
+      const timer = setTimeout(() => {
+        dispatch(clearMessage());
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, dispatch]);
+
+  const openReportModal = (competition) => {
+    setSelectedCompetition(competition);
+    setShowReportModal(true);
+    setReportReason('spam');
+    setReportDescription('');
+  };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+    setSelectedCompetition(null);
+    setReportReason('spam');
+    setReportDescription('');
+    setReportError('');
+  };
+
+  const handleSubmitReport = async () => {
+    if (!selectedCompetition) return;
+    
+    setIsSubmittingReport(true);
+    setReportError('');
+    try {
+      await dispatch(reportCompetition({
+        id: selectedCompetition._id,
+        reason: reportReason,
+        description: reportDescription
+      })).unwrap();
+      closeReportModal();
+      // Refresh competitions to update any local state
+      dispatch(fetchCompetitions());
+    } catch (error) {
+      console.error('Report failed:', error);
+      setReportError(error);
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   const handleVote = async (competitionId, optionIndex) => {
     if (votingStates[competitionId]) return;
@@ -347,20 +400,32 @@ const Competitions = () => {
                     <span className="text-sm">votes</span>
                   </div>
                   
-                  {hasVoted ? (
-                    <div className="flex items-center gap-1.5 text-green-600 font-medium text-sm">
-                      <FiCheck className="w-4 h-4" />
-                      <span>Your vote recorded</span>
-                    </div>
-                  ) : !isResultsVisible ? (
-                    <div className="text-primary-600 font-medium text-sm animate-pulse">
-                      Tap an option to vote!
-                    </div>
-                  ) : (
-                    <div className="text-gray-500 text-sm">
-                      Voting ended
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {hasVoted ? (
+                      <div className="flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                        <FiCheck className="w-4 h-4" />
+                        <span>Your vote recorded</span>
+                      </div>
+                    ) : !isResultsVisible ? (
+                      <div className="text-primary-600 font-medium text-sm animate-pulse">
+                        Tap an option to vote!
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 text-sm">
+                        Voting ended
+                      </div>
+                    )}
+                    
+                    {/* Report Button */}
+                    <button
+                      onClick={() => openReportModal(competition)}
+                      className="flex items-center gap-1 text-gray-400 hover:text-red-500 transition-colors text-sm"
+                      title="Report this competition"
+                    >
+                      <FiFlag className="w-4 h-4" />
+                      <span className="hidden sm:inline">Report</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -372,6 +437,105 @@ const Competitions = () => {
       {competitions.length > 0 && (
         <div className="text-center mt-6 text-gray-500 text-sm">
           <p>You're all caught up!</p>
+        </div>
+      )}
+
+      {/* Report Competition Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FiFlag className="text-red-500" />
+                Report Competition
+              </h3>
+              <button
+                onClick={closeReportModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <p className="text-sm text-gray-600 mb-4">
+                You're reporting: <strong>{selectedCompetition?.title}</strong>
+              </p>
+
+              {/* Error Message */}
+              {reportError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {reportError}
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason for reporting
+                </label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="spam">Spam</option>
+                  <option value="harassment">Harassment</option>
+                  <option value="hate-speech">Hate Speech</option>
+                  <option value="violence">Violence</option>
+                  <option value="misinformation">Misinformation</option>
+                  <option value="inappropriate">Inappropriate Content</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Details (optional)
+                </label>
+                <textarea
+                  value={reportDescription}
+                  onChange={(e) => setReportDescription(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows="3"
+                  placeholder="Provide more information about why you're reporting this competition..."
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {reportDescription.length}/500
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end space-x-2 p-4 border-t bg-gray-50">
+              <button
+                onClick={closeReportModal}
+                className="btn bg-gray-100 text-gray-700 hover:bg-gray-200"
+                disabled={isSubmittingReport}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitReport}
+                className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+                disabled={isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>Reporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiFlag className="w-4 h-4" />
+                    <span>Submit Report</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

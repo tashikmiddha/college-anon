@@ -1,5 +1,7 @@
+import mongoose from 'mongoose';
 import Competition from '../models/Competition.js';
 import User from '../models/User.js';
+import Report from '../models/Report.js';
 import { uploadImage as uploadImageToCloudinary } from '../config/cloudinary.js';
 
 // @desc    Create new competition
@@ -40,10 +42,11 @@ export const createCompetition = async (req, res) => {
     }
 
     // Check for duplicate competition (prevent rapid double submissions)
+    const titleLower = title.trim().toLowerCase();
     const recentCompetition = await Competition.findOne({
       author: req.user._id,
       createdAt: { $gt: new Date(Date.now() - 30000) }, // Last 30 seconds
-      title: title.trim()
+      $expr: { $eq: [{ $toLower: "$title" }, titleLower] } // Case-insensitive exact match
     });
 
     if (recentCompetition) {
@@ -430,6 +433,115 @@ export const getAllCompetitionsAdmin = async (req, res) => {
   } catch (error) {
     console.error('Error fetching all competitions (admin):', error);
     res.status(500).json({ message: 'Failed to fetch competitions' });
+  }
+};
+
+// @desc    Report a competition
+// @route   POST /api/competitions/:id/report
+// @access  Private (college-restricted)
+export const reportCompetition = async (req, res) => {
+  try {
+    const { reason, description } = req.body;
+    const competitionId = req.params.id;
+    
+    console.log('=== REPORT REQUEST ===');
+    console.log('URL competition ID:', competitionId);
+    console.log('Reporter:', req.user._id, req.user.anonId);
+    console.log('Reason:', reason);
+
+    const competition = await Competition.findById(competitionId);
+
+    if (!competition) {
+      console.log('Competition not found for ID:', competitionId);
+      return res.status(404).json({ message: 'Competition not found' });
+    }
+
+    // Check if competition is active
+    if (!competition.isActive) {
+      console.log('Attempted to report inactive competition:', competition._id);
+      return res.status(400).json({ message: 'This competition has been deactivated and cannot be reported' });
+    }
+
+    // Check if competition has expired
+    if (new Date(competition.expiresAt) <= new Date()) {
+      return res.status(400).json({ message: 'This competition has expired and cannot be reported' });
+    }
+
+    console.log('Found competition:', competition._id, competition.title);
+    console.log('Competition author:', competition.anonId);
+
+    // Check college access
+    if (!req.user.isAdmin && competition.college !== req.user.college) {
+      return res.status(403).json({ 
+        message: 'You do not have permission to report this competition' 
+      });
+    }
+
+    // Validate reason
+    const validReasons = ['spam', 'harassment', 'hate-speech', 'violence', 'misinformation', 'inappropriate', 'other'];
+    if (!reason || !validReasons.includes(reason)) {
+      return res.status(400).json({ message: 'Please provide a valid reason' });
+    }
+
+    // Check if user already reported this competition
+    console.log('Checking for existing report with:');
+    console.log('  reporter:', req.user._id.toString());
+    console.log('  competition:', competition._id.toString());
+    
+    const existingReport = await Report.findOne({
+      reporter: req.user._id,
+      competition: competition._id
+    });
+
+    console.log('Query result:', existingReport ? `Found report ${existingReport._id}` : 'null (no existing report)');
+
+    if (existingReport) {
+      return res.status(400).json({ message: 'You have already reported this competition' });
+    }
+
+    // Create report
+    const report = new Report({
+      reporter: req.user._id,
+      competition: competition._id,
+      reason,
+      description: description || ''
+    });
+
+    // Use insertOne to get better error handling
+    try {
+      await report.save();
+    } catch (saveError) {
+      // Handle duplicate key error (race condition)
+      if (saveError.code === 11000) {
+        // Another request inserted a report first, check again
+        const checkAgain = await Report.findOne({
+          reporter: req.user._id,
+          competition: competition._id
+        });
+        
+        console.log('Duplicate key error, re-check:', checkAgain);
+        
+        if (checkAgain) {
+          return res.status(400).json({ message: 'You have already reported this competition' });
+        }
+        
+        // The duplicate might be stale, try to insert again
+        return res.status(400).json({ message: 'A report already exists for this competition. Please try again.' });
+      }
+      
+      // Re-throw other errors
+      throw saveError;
+    }
+
+    console.log('Report created successfully:', report._id);
+    res.status(201).json({ message: 'Competition reported successfully', report });
+  } catch (error) {
+    // Handle duplicate key error for competition reports
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'You have already reported this competition' });
+    }
+    console.error('Error reporting competition:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

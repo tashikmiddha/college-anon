@@ -342,11 +342,14 @@ export const adminAPI = {
   // Competition management
   getAllCompetitions: async (params = {}) => {
     const queryString = buildQueryString(params);
+    console.log('API call: GET /api/competitions/admin/all?' + queryString);
     const response = await fetch(`/api/competitions/admin/all?${queryString}`, {
       headers: getHeaders(),
     });
+    console.log('API response status:', response.status);
 
     const data = await response.json();
+    console.log('API response data:', data);
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to fetch competitions');
@@ -381,6 +384,22 @@ export const adminAPI = {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to delete competition');
+    }
+
+    return data;
+  },
+
+  // Hard delete competition (permanently removes from database)
+  hardDeleteCompetition: async (id) => {
+    const response = await fetch(`/api/competitions/${id}/hard-delete`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to permanently delete competition');
     }
 
     return data;
@@ -502,6 +521,43 @@ export const adminAPI = {
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to delete comment');
+    }
+
+    return data;
+  },
+
+  // Get competition reports with pagination support
+  getCompetitionReports: async (params = {}) => {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const filterParams = {};
+    if (params.status) filterParams.status = params.status;
+
+    const queryString = buildQueryString({ ...filterParams, page, limit });
+    const response = await fetch(`${API_URL}/competition-reports?${queryString}`, {
+      headers: getHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch competition reports');
+    }
+
+    return data;
+  },
+
+  resolveCompetitionReport: async (id, { status, adminNotes }) => {
+    const response = await fetch(`${API_URL}/competition-reports/${id}/resolve`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ status, adminNotes }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to resolve competition report');
     }
 
     return data;

@@ -143,14 +143,14 @@ const Profile = () => {
   return (
     <div className="container-custom py-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">My Profile</h1>
-          <div className="flex space-x-2">
-            <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'profile' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Profile</button>
-            <button onClick={() => setActiveTab('posts')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'posts' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>My Posts</button>
-            <button onClick={() => setActiveTab('comments')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'comments' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiMessageSquare className="w-4 h-4 mr-1" />My Comments</button>
-            <button onClick={() => setActiveTab('reports')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'reports' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiFlag className="w-4 h-4 mr-1" />My Reports</button>
-            <button onClick={() => setActiveTab('feedbacks')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'feedbacks' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiMessageSquare className="w-4 h-4 mr-1" />My Feedback</button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setActiveTab('profile')} className={`px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === 'profile' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Profile</button>
+            <button onClick={() => setActiveTab('posts')} className={`px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === 'posts' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>My Posts</button>
+            <button onClick={() => setActiveTab('comments')} className={`px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === 'comments' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiMessageSquare className="w-4 h-4 mr-1" /><span className="hidden sm:inline">My</span> Comments</button>
+            <button onClick={() => setActiveTab('reports')} className={`px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === 'reports' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiFlag className="w-4 h-4 mr-1" /><span className="hidden sm:inline">My</span> Reports</button>
+            <button onClick={() => setActiveTab('feedbacks')} className={`px-3 py-2 rounded-lg text-sm transition-colors ${activeTab === 'feedbacks' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} flex items-center`}><FiMessageSquare className="w-4 h-4 mr-1" /><span className="hidden sm:inline">My</span> Feedback</button>
           </div>
         </div>
         {renderTabContent()}
@@ -162,15 +162,15 @@ const Profile = () => {
 const ProfileTab = ({ user, isPremium, premiumExpiresAt, imageLimit, imageUsed, competitionLimit, competitionUsed, isLoading, message, displayName, newPassword, confirmPassword, handleChange, handleSubmit, handleRefreshAnonId }) => (
   <>
     {isPremium ? (
-      <div className="card space-y-6 mb-6 bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
-        <div className="flex items-center justify-between">
+      <div className="card space-y-4 mb-6 bg-gradient-to-r from-yellow-50 to-yellow-100 border-yellow-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4"><FiStar className="w-6 h-6 text-yellow-600" /></div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0"><FiStar className="w-6 h-6 text-yellow-600" /></div>
             <div><h2 className="text-xl font-semibold text-yellow-800">Premium Member</h2><p className="text-sm text-yellow-600">Valid until {premiumExpiresAt.toLocaleDateString()}</p></div>
           </div>
-          <Link to="/premium" className="btn btn-secondary text-sm"><FiExternalLink className="mr-1" />Manage</Link>
+          <Link to="/premium" className="btn btn-secondary text-sm self-start sm:self-auto"><FiExternalLink className="mr-1" />Manage</Link>
         </div>
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-yellow-200">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-yellow-200">
           <div>
             <div className="flex items-center justify-between mb-1">
               <span className="flex items-center text-sm text-gray-600"><FiImage className="mr-1" />Image Uploads</span>
@@ -188,13 +188,13 @@ const ProfileTab = ({ user, isPremium, premiumExpiresAt, imageLimit, imageUsed, 
         </div>
       </div>
     ) : (
-      <div className="card space-y-6 mb-6 bg-gray-50 border-gray-200">
-        <div className="flex items-center justify-between">
+      <div className="card space-y-4 mb-6 bg-gray-50 border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-4"><FiStar className="w-6 h-6 text-gray-500" /></div>
+            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mr-4 flex-shrink-0"><FiStar className="w-6 h-6 text-gray-500" /></div>
             <div><h2 className="text-xl font-semibold text-gray-700">Standard Member</h2><p className="text-sm text-gray-500">Upgrade to unlock premium features</p></div>
           </div>
-          <Link to="/premium" className="btn btn-primary text-sm"><FiStar className="mr-1" />Upgrade</Link>
+          <Link to="/premium" className="btn btn-primary text-sm self-start sm:self-auto"><FiStar className="mr-1" />Upgrade</Link>
         </div>
       </div>
     )}
@@ -205,9 +205,9 @@ const ProfileTab = ({ user, isPremium, premiumExpiresAt, imageLimit, imageUsed, 
         <input type="email" value={user.email} disabled className="input bg-gray-100" />
       </div>
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div><p className="font-medium text-blue-900">Anonymous ID</p><p className="text-sm text-blue-700">{user.anonId}</p></div>
-          <button onClick={handleRefreshAnonId} disabled={isLoading} className="btn btn-secondary text-sm">Generate New ID</button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div><p className="font-medium text-blue-900">Anonymous ID</p><p className="text-sm text-blue-700 break-all">{user.anonId}</p></div>
+          <button onClick={handleRefreshAnonId} disabled={isLoading} className="btn btn-secondary text-sm self-start">Generate New ID</button>
         </div>
         <p className="text-xs text-blue-600 mt-2">Your anonymous ID is what other users see. You can regenerate it anytime.</p>
       </div>
@@ -242,9 +242,9 @@ const ProfileTab = ({ user, isPremium, premiumExpiresAt, imageLimit, imageUsed, 
 
 const PostsTab = ({ myPosts, postsLoading, truncateContent, formatDate, getModerationStatusBadge, handleDeletePost }) => (
   <div className="card">
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <h2 className="text-xl font-semibold">My Posts</h2>
-      <Link to="/create" className="btn btn-primary">Create New Post</Link>
+      <Link to="/create" className="btn btn-primary self-start sm:self-auto">Create New Post</Link>
     </div>
     {postsLoading ? (
       <div className="text-center py-8"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div><p className="text-gray-500 mt-4">Loading your posts...</p></div>
@@ -267,9 +267,9 @@ const PostsTab = ({ myPosts, postsLoading, truncateContent, formatDate, getModer
                 </div>
               </Link>
             )}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">{getModerationStatusBadge(post.moderationStatus)}<span className="text-sm text-gray-500">{formatDate(post.createdAt)}</span></div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">{getModerationStatusBadge(post.moderationStatus)}<span className="text-sm text-gray-500">{formatDate(post.createdAt)}</span></div>
                 <Link to={`/post/${post._id}`} className="block"><h3 className="font-semibold text-gray-900 hover:text-primary-600">{post.title}</h3></Link>
                 <p className="text-gray-600 text-sm mt-2">{truncateContent(post.content)}</p>
                 <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
@@ -277,7 +277,7 @@ const PostsTab = ({ myPosts, postsLoading, truncateContent, formatDate, getModer
                   <span className="flex items-center"><FiMessageSquare className="w-4 h-4 mr-1" />{post.commentCount || 0}</span>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex items-center space-x-2 sm:ml-4">
                 {post.moderationStatus === 'approved' && <Link to={`/edit/${post._id}`} className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit post"><FiEdit className="w-5 h-5" /></Link>}
                 <button onClick={() => handleDeletePost(post._id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete post"><FiTrash2 className="w-5 h-5" /></button>
               </div>
@@ -293,14 +293,30 @@ const PostsTab = ({ myPosts, postsLoading, truncateContent, formatDate, getModer
 
 const ReportsTab = ({ myReports, reportsLoading, reportsError, formatDate, getReportStatusBadge, getReportReasonLabel, truncateContent }) => (
   <div className="card">
-    <div className="flex items-center justify-between mb-6"><h2 className="text-xl font-semibold flex items-center"><FiFlag className="w-5 h-5 mr-2" />My Reports</h2></div>
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-xl font-semibold flex items-center">
+        <FiFlag className="w-5 h-5 mr-2" />
+        <span className="hidden sm:inline">My</span> Reports
+      </h2>
+    </div>
     {reportsLoading ? (
-      <div className="text-center py-8"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div><p className="text-gray-500 mt-4">Loading your reports...</p></div>
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+        <p className="text-gray-500 mt-4">Loading your reports...</p>
+      </div>
     ) : reportsError ? (
-      <div className="text-center py-8"><div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4"><FiAlertCircle className="w-8 h-8 text-red-500" /></div><h3 className="text-lg font-medium text-gray-900 mb-2">Error loading reports</h3><p className="text-gray-500">Please try again later.</p></div>
+      <div className="text-center py-8">
+        <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+          <FiAlertCircle className="w-8 h-8 text-red-500" />
+        </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading reports</h3>
+        <p className="text-gray-500">Please try again later.</p>
+      </div>
     ) : myReports.length === 0 ? (
       <div className="text-center py-12">
-        <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4"><FiFlag className="w-8 h-8 text-gray-400" /></div>
+        <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+          <FiFlag className="w-8 h-8 text-gray-400" />
+        </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No reports submitted</h3>
         <p className="text-gray-500 mb-6">You haven't reported any posts yet.</p>
         <Link to="/" className="btn btn-primary">Browse Posts</Link>
@@ -309,32 +325,102 @@ const ReportsTab = ({ myReports, reportsLoading, reportsError, formatDate, getRe
       <div className="space-y-4">
         {myReports.map((report) => (
           <div key={report._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-2">{getReportStatusBadge(report.status)}<span className="text-sm text-gray-500">{formatDate(report.createdAt)}</span></div>
-              {report.post && <Link to={`/post/${report.post._id}`} className="flex items-center text-sm text-primary-600 hover:text-primary-700"><FiEye className="w-4 h-4 mr-1" />View Post</Link>}
+            {/* Header: Status badge, date, and View Post link */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {getReportStatusBadge(report.status)}
+                <span className="text-sm text-gray-500">{formatDate(report.createdAt)}</span>
+              </div>
+              {report.post && (
+                <Link 
+                  to={`/post/${report.post._id}`} 
+                  className="flex items-center text-sm text-primary-600 hover:text-primary-700 self-start"
+                >
+                  <FiEye className="w-4 h-4 mr-1" />
+                  View Post
+                </Link>
+              )}
             </div>
-            <div className="mb-3"><span className="text-sm font-medium text-gray-700">Reported for: <span className="text-red-600">{getReportReasonLabel(report.reason)}</span></span></div>
-            {report.description && <p className="text-sm text-gray-600 mb-3 bg-gray-50 p-3 rounded-lg">{report.description}</p>}
-            {report.post && (
-              <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs font-medium text-gray-500 mb-1">Reported Post:</p>
-                <Link to={`/post/${report.post._id}`} className="block"><p className="font-medium text-gray-900 hover:text-primary-600">{report.post.title || 'Untitled Post'}</p></Link>
-                <p className="text-sm text-gray-600 mt-1">{truncateContent(report.post.content, 150)}</p>
+
+            {/* Report reason */}
+            <div className="mb-3">
+              <p className="text-sm">
+                <span className="font-medium text-gray-700">Reported for: </span>
+                <span className="text-red-600 font-medium">{getReportReasonLabel(report.reason)}</span>
+              </p>
+            </div>
+
+            {/* Report description */}
+            {report.description && (
+              <div className="mb-3">
+                <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg break-words">
+                  {report.description}
+                </p>
               </div>
             )}
+
+            {/* Reported post preview */}
+            {report.post && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
+                  Reported Post
+                </p>
+                <Link to={`/post/${report.post._id}`} className="block group">
+                  <p className="font-medium text-gray-900 group-hover:text-primary-600 transition-colors">
+                    {report.post.title || 'Untitled Post'}
+                  </p>
+                </Link>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                  {truncateContent(report.post.content, 150)}
+                </p>
+              </div>
+            )}
+
+            {/* Resolution/Dismissal info */}
             {(report.status === 'resolved' || report.status === 'dismissed') && (
-              <div className={`mt-3 p-3 rounded-lg ${report.status === 'resolved' ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+              <div className={`mt-3 p-3 rounded-lg ${
+                report.status === 'resolved' 
+                  ? 'bg-green-50 border border-green-200' 
+                  : 'bg-gray-50 border border-gray-200'
+              }`}>
                 <div className="flex items-start">
-                  <FiInfo className={`w-5 h-5 mr-2 mt-0.5 ${report.status === 'resolved' ? 'text-green-600' : 'text-gray-600'}`} />
-                  <div>
-                    <p className={`text-sm font-medium ${report.status === 'resolved' ? 'text-green-800' : 'text-gray-800'}`}>{report.status === 'resolved' ? 'Report Resolved' : 'Report Dismissed'}</p>
-                    {report.adminNotes && <p className={`text-sm mt-1 ${report.status === 'resolved' ? 'text-green-700' : 'text-gray-700'}`}><strong>Admin Note:</strong> {report.adminNotes}</p>}
-                    {report.reviewedAt && <p className={`text-xs mt-1 ${report.status === 'resolved' ? 'text-green-600' : 'text-gray-500'}`}>Reviewed on {formatDate(report.reviewedAt)}</p>}
+                  <FiInfo className={`w-5 h-5 mr-2 mt-0.5 flex-shrink-0 ${
+                    report.status === 'resolved' ? 'text-green-600' : 'text-gray-600'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${
+                      report.status === 'resolved' ? 'text-green-800' : 'text-gray-800'
+                    }`}>
+                      {report.status === 'resolved' ? 'Report Resolved' : 'Report Dismissed'}
+                    </p>
+                    {report.adminNotes && (
+                      <p className={`text-sm mt-1 ${
+                        report.status === 'resolved' ? 'text-green-700' : 'text-gray-700'
+                      }`}>
+                        <span className="font-medium">Admin Response:</span> {report.adminNotes}
+                      </p>
+                    )}
+                    {report.reviewedAt && (
+                      <p className={`text-xs mt-1 ${
+                        report.status === 'resolved' ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        Reviewed on {formatDate(report.reviewedAt)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             )}
-            {report.status === 'pending' && <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg"><p className="text-sm text-yellow-700 flex items-center"><FiClock className="w-4 h-4 mr-2" />Your report is being reviewed by our moderation team.</p></div>}
+
+            {/* Pending status */}
+            {report.status === 'pending' && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-700 flex items-center">
+                  <FiClock className="w-4 h-4 mr-2 flex-shrink-0" />
+                  Your report is being reviewed by our moderation team.
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -360,8 +446,8 @@ const FeedbacksTab = ({ myFeedbacks, reportsLoading, reportsError, formatDate })
       <div className="space-y-4">
         {myFeedbacks.map((feedback) => (
           <div key={feedback._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${feedback.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                   {feedback.status === 'pending' ? <span className="flex items-center"><FiClock className="w-3 h-3 mr-1" />Pending Review</span> : <span className="flex items-center"><FiCheck className="w-3 h-3 mr-1" />Resolved</span>}
                 </span>
@@ -411,7 +497,7 @@ const CommentsTab = ({ myComments, postsLoading, truncateContent, formatDate, ha
       <div className="space-y-4">
         {myComments.map((comment) => (
           <div key={comment._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-            <div className="flex items-start justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-500">{formatDate(comment.createdAt)}</span>
               </div>

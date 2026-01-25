@@ -1,48 +1,42 @@
 import { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { FiArrowLeft, FiUpload, FiCheck, FiStar, FiImage, FiAward, FiClock, FiMail, FiCheckCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiUpload, FiStar, FiAward, FiClock, FiCheckCircle, FiPhone } from 'react-icons/fi';
 import qrCodeImage from '../assets/qr-code.jpeg';
 import { paymentAPI } from '../features/auth/authAPI';
 
 const Payment = () => {
   const { planId } = useParams();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
 
-  // Premium Plans Data
   const premiumPlans = [
     {
       id: 'basic',
-      name: 'BASIC',
+      name: 'Basic',
+      subtitle: 'Starter',
       price: '₹49',
-      color: 'green',
-      icon: FiStar,
-      features: ['Image uploads: 3', 'Competitions: 1', 'Validity: Lifetime']
+      features: ['3 Images', '1 Competition', '10 Days']
     },
     {
       id: 'advance',
-      name: 'ADVANCE',
+      name: 'Advance',
+      subtitle: 'Most Popular',
       price: '₹149',
-      color: 'blue',
-      icon: FiClock,
-      features: ['Image uploads: 10', 'Competitions: 5', 'Premium badge']
+      features: ['10 Images', '5 Competitions', '30 Days']
     },
     {
       id: 'elite',
-      name: 'ELITE',
+      name: 'Elite',
+      subtitle: 'Lifetime',
       price: '₹299',
-      color: 'purple',
-      icon: FiAward,
-      features: ['Image uploads: Unlimited', 'Competitions: Unlimited', 'Featured placement']
+      features: ['25 Images', '15 Competitions', 'Lifetime']
     }
   ];
 
@@ -95,47 +89,17 @@ const Payment = () => {
     }
   };
 
-  const Icon = selectedPlan.icon;
-  const isGreen = selectedPlan.color === 'green';
-  const isBlue = selectedPlan.color === 'blue';
-  const isPurple = selectedPlan.color === 'purple';
-
-  // Success State
   if (submitted) {
     return (
-      <div className="container-custom py-12">
-        <div className="max-w-md mx-auto text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <FiCheckCircle className="w-10 h-10 text-green-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Payment Submitted!</h1>
-          <p className="text-gray-600 mb-6">
-            Your payment screenshot has been sent to the admin. You will receive your premium access within 24 hours after verification.
-          </p>
-          <div className="card p-6 bg-gray-50 mb-6">
-            <h3 className="font-semibold mb-2">What happens next?</h3>
-            <ol className="text-left text-sm text-gray-600 space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs">✓</span>
-                Admin has received your payment screenshot
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-xs">2</span>
-                Admin will verify the payment
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-xs">3</span>
-                You'll receive a notification when premium is activated
-              </li>
-            </ol>
-          </div>
-          <div className="flex gap-4 justify-center">
-            <Link to="/" className="btn btn-primary">
-              Go to Home
-            </Link>
-            <Link to="/profile" className="btn btn-secondary">
-              View Profile
-            </Link>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
+              <FiCheckCircle className="w-8 h-8 text-emerald-500" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Payment Submitted!</h1>
+            <p className="text-gray-500 text-sm mb-6">Premium will be activated within 24 hours.</p>
+            <Link to="/" className="block w-full py-3 bg-gray-900 text-white rounded-xl font-medium">Go to Home</Link>
           </div>
         </div>
       </div>
@@ -143,193 +107,192 @@ const Payment = () => {
   }
 
   return (
-    <div className="container-custom py-8">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-      >
-        <FiArrowLeft className="w-5 h-5 mr-2" />
-        Back
-      </button>
+    <div className="min-h-screen bg-gray-100">
+      {/* Header - Mobile Only */}
+      <div className="md:hidden bg-white px-4 py-3 border-b border-gray-200">
+        <button onClick={() => navigate(-1)} className="flex items-center text-gray-600">
+          <FiArrowLeft className="w-5 h-5 mr-1.5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+      </div>
 
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Complete Your Payment</h1>
-          <p className="text-gray-600">Selected Plan: <span className="font-semibold">{selectedPlan.name}</span></p>
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        {/* PC Back Button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="hidden md:flex items-center text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <FiArrowLeft className="w-5 h-5 mr-2" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+
+        {/* Title - Mobile */}
+        <div className="md:hidden text-center mb-4">
+          <h1 className="text-xl font-bold text-gray-900">Complete Payment</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{selectedPlan.name} Plan - {selectedPlan.price}</p>
         </div>
 
-        {/* Selected Plan Summary */}
-        <div className={`card p-6 mb-8 ${
-          isGreen ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200' :
-          isBlue ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200' :
-          'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                isGreen ? 'bg-green-500' : isBlue ? 'bg-blue-500' : 'bg-purple-500'
-              }`}>
-                <Icon className="w-7 h-7 text-white" />
+        {/* PC Layout - Two Columns */}
+        <div className="hidden md:grid md:grid-cols-2 gap-6">
+          {/* Left Column - Plan & QR */}
+          <div className="space-y-6">
+            {/* Plan Card - PC */}
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedPlan.name}</h2>
+                  <p className="text-sm text-gray-500">{selectedPlan.subtitle}</p>
+                </div>
+                <span className="text-2xl font-bold text-gray-900">{selectedPlan.price}</span>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">{selectedPlan.name} Plan</h2>
-                <p className="text-gray-600">{selectedPlan.features.join(' • ')}</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedPlan.features.map((feature, idx) => (
+                  <span key={idx} className="text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full">{feature}</span>
+                ))}
               </div>
-            </div>
-            <div className="text-right">
-              <span className="text-4xl font-bold">{selectedPlan.price}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Payment Details */}
-          <div className="card p-6">
-            <h3 className="text-xl font-semibold mb-6">Payment Details</h3>
-            
-            {/* QR Code */}
-            <div className="text-center mb-6">
-              <div className="bg-white p-4 rounded-lg inline-block shadow-sm border mb-4">
-                <img 
-                  src={qrCodeImage} 
-                  alt="UPI QR Code" 
-                  className="w-48 h-48 object-contain mx-auto rounded-lg"
-                />
-              </div>
-              <p className="text-sm text-gray-500 mb-2">Scan with any UPI App</p>
-              <p className="font-mono text-lg font-semibold">8824780800@hdfc</p>
             </div>
 
-            {/* Steps */}
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-bold">1</span>
-                <span className="text-sm text-gray-700">Open your UPI app</span>
+            {/* QR Card - PC */}
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-center">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <FiPhone className="w-6 h-6 text-white" />
               </div>
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                <span className="text-sm text-gray-700">Scan QR code or enter UPI ID</span>
+              <p className="text-white text-base mb-4 font-medium">Scan with any UPI App</p>
+              <div className="bg-white rounded-xl p-4 inline-block mb-4 shadow-lg">
+                <img src={qrCodeImage} alt="QR Code" className="w-40 h-40 object-contain" />
               </div>
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-bold">3</span>
-                <span className="text-sm text-gray-700">Pay <strong>{selectedPlan.price}</strong></span>
+              <br />
+              <div className="bg-white/10 rounded-lg px-4 py-2 inline-block">
+                <p className="text-white font-mono text-sm">8824780800@hdfc</p>
               </div>
-              <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-bold">4</span>
-                <span className="text-sm text-gray-700">Take screenshot of payment confirmation</span>
+            </div>
+
+            {/* Steps - PC */}
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">How to Pay</h3>
+              <div className="space-y-3">
+                {['Open UPI App (GPay, PhonePe)', 'Scan QR or enter UPI ID', `Pay ${selectedPlan.price}`, 'Take screenshot'].map((step, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="w-7 h-7 bg-gray-900 text-white rounded-full flex items-center justify-center text-sm font-bold">{idx + 1}</span>
+                    <span className="text-sm text-gray-700">{step}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Upload Screenshot */}
-          <div className="card p-6">
-            <h3 className="text-xl font-semibold mb-6">Upload Payment Screenshot</h3>
-            
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
+          {/* Right Column - Upload */}
+          <div className="space-y-6">
+            {/* Upload Card - PC */}
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Upload Payment Screenshot</h3>
+              
+              {error && <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
 
-            {/* User Info */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-600">
-                <strong>User:</strong> {user?.displayName || 'Anonymous'} ({user?.anonId})
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Email:</strong> {user?.email}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>College:</strong> {user?.college}
-              </p>
+              <div className="relative">
+                <div className={`border-2 border-dashed rounded-xl p-8 text-center ${selectedFile ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300'}`}>
+                  {preview ? (
+                    <div className="relative">
+                      <img src={preview} alt="Preview" className="max-h-56 mx-auto rounded-lg" />
+                      <button onClick={() => { setSelectedFile(null); setPreview(null); }} className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center">×</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <FiUpload className="w-7 h-7 text-gray-400" />
+                      </div>
+                      <p className="text-gray-600 text-sm">Tap to upload screenshot</p>
+                      <p className="text-gray-400 text-xs mt-1">PNG or JPG up to 5MB</p>
+                    </div>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                </div>
+              </div>
+
+              <button onClick={handleSubmit} disabled={!selectedFile || submitting} className={`w-full mt-4 py-4 rounded-xl font-semibold text-white ${!selectedFile || submitting ? 'bg-gray-200 text-gray-400' : 'bg-gray-900'}`}>
+                {submitting ? 'Submitting...' : 'Submit Payment'}
+              </button>
             </div>
 
-            {/* File Upload */}
-            <div className="mb-6 relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Screenshot
-              </label>
-              <div className={`border-2 border-dashed rounded-lg p-8 text-center relative ${
-                selectedFile ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-primary-500'
-              }`}>
+            {/* Note - PC */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <p className="text-yellow-800 text-sm">Premium will be activated within 24 hours after verification.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Layout - Single Column */}
+        <div className="md:hidden space-y-4">
+          {/* Plan Card - Mobile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between overflow-hidden">
+              <div className="overflow-hidden">
+                <h2 className="text-lg font-bold text-gray-900">{selectedPlan.name}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{selectedPlan.features.join(' • ')}</p>
+              </div>
+              <span className="text-xl font-bold text-gray-900">{selectedPlan.price}</span>
+            </div>
+          </div>
+
+          {/* QR Card - Mobile */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 text-center">
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <FiPhone className="w-5 h-5 text-white" />
+            </div>
+            <p className="text-white text-sm mb-3 font-medium">Scan with any UPI App</p>
+            <div className="bg-white rounded-xl p-2 inline-block mb-2 shadow-lg">
+              <img src={qrCodeImage} alt="QR Code" className="w-28 h-28 object-contain" />
+            </div>
+            <br />
+            <div className="bg-white/10 rounded-lg px-3 py-1.5 inline-block">
+              <p className="text-white font-mono text-sm">8824780800@hdfc</p>
+            </div>
+          </div>
+
+          {/* Steps - Mobile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">How to Pay</h3>
+            <div className="space-y-2">
+              {['Open UPI App', 'Scan QR or enter ID', `Pay ${selectedPlan.price}`, 'Take screenshot'].map((step, idx) => (
+                <div key={idx} className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">{idx + 1}</span>
+                  <span className="text-sm text-gray-700">{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Upload - Mobile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-900 text-sm mb-3">Upload Screenshot</h3>
+            {error && <div className="bg-red-50 text-red-600 text-xs px-3 py-2 rounded-lg mb-3">{error}</div>}
+            <div className="relative">
+              <div className={`border-2 border-dashed rounded-lg p-6 text-center ${selectedFile ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300'}`}>
                 {preview ? (
                   <div className="relative">
-                    <img 
-                      src={preview} 
-                      alt="Payment screenshot preview" 
-                      className="max-h-48 mx-auto rounded-lg"
-                    />
-                    <button
-                      onClick={() => {
-                        setSelectedFile(null);
-                        setPreview(null);
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
-                    >
-                      ×
-                    </button>
+                    <img src={preview} alt="Preview" className="max-h-40 mx-auto rounded-lg" />
+                    <button onClick={() => { setSelectedFile(null); setPreview(null); }} className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm">×</button>
                   </div>
                 ) : (
-                  <>
-                    <FiUpload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">
-                      Click to upload or drag and drop
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      PNG, JPG up to 5MB
-                    </p>
-                  </>
+                  <div>
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <FiUpload className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <p className="text-gray-600 text-sm">Tap to upload</p>
+                    <p className="text-gray-400 text-xs mt-1">Max 5MB</p>
+                  </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
+                <input type="file" accept="image/*" onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
               </div>
             </div>
-
-            {/* Submit Button */}
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedFile || submitting}
-              className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 ${
-                !selectedFile || submitting
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Submitting...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <FiCheck className="w-5 h-5" />
-                  Submit Payment
-                </span>
-              )}
+            <button onClick={handleSubmit} disabled={!selectedFile || submitting} className={`w-full mt-3 py-3 rounded-lg font-semibold text-white text-sm ${!selectedFile || submitting ? 'bg-gray-200 text-gray-400' : 'bg-gray-900'}`}>
+              {submitting ? 'Submitting...' : 'Submit Payment'}
             </button>
           </div>
-        </div>
 
-        {/* Note */}
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <FiMail className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-yellow-800 font-medium mb-1">Important Note</p>
-              <p className="text-sm text-yellow-700">
-                After submitting your payment screenshot, the admin will verify and grant you premium access within 24 hours.
-                You'll receive a notification once your premium is activated.
-              </p>
-            </div>
+          {/* Note - Mobile */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p className="text-yellow-800 text-xs">Premium activated within 24 hours after verification.</p>
           </div>
         </div>
       </div>

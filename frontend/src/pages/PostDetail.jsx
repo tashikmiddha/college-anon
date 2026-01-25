@@ -340,9 +340,9 @@ const PostDetail = () => {
           </div>
         )}
 
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <div className="flex items-center space-x-2 mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${categoryColors[post.category]}`}>
                 {post.category}
               </span>
@@ -358,11 +358,11 @@ const PostDetail = () => {
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">{post.title}</h1>
           </div>
         </div>
 
-        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-6 pb-6 border-b">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-500 mb-6 pb-6 border-b">
           <span className={`font-medium ${post.author?.isPremium ? 'text-yellow-600' : 'text-gray-700'}`}>
             {post.displayName}
             {post.author?.isPremium && (
@@ -370,14 +370,14 @@ const PostDetail = () => {
             )}
           </span>
           <span>•</span>
-          <span>{post.anonId}</span>
+          <span className="break-all">{post.anonId}</span>
           <span>•</span>
           <span className="flex items-center">
-            <FiEyeOff className="w-4 h-4 mr-1" />
-            {post.college}
+            <FiEyeOff className="w-4 h-4 mr-1 flex-shrink-0" />
+            <span className="truncate max-w-[100px] sm:max-w-none">{post.college}</span>
           </span>
           <span>•</span>
-          <span>{formatDate(post.createdAt)}</span>
+          <span className="whitespace-nowrap">{formatDate(post.createdAt)}</span>
         </div>
 
         {/* College access notice for non-college posts */}
@@ -503,7 +503,7 @@ const PostDetail = () => {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-8 pt-6 border-t">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-8 pt-6 border-t gap-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={handleLike}
@@ -522,19 +522,19 @@ const PostDetail = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             {isAuthor && !post.isRejected && (
               <>
                 <Link
                   to={`/edit/${post._id}`}
-                  className="flex items-center space-x-1 text-gray-600 hover:text-primary-600"
+                  className="flex items-center space-x-1 text-gray-600 hover:text-primary-600 text-sm"
                 >
                   <FiEdit />
                   <span>Edit</span>
                 </Link>
                 <button
                   onClick={handleDelete}
-                  className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                  className="flex items-center space-x-1 text-red-600 hover:text-red-700 text-sm"
                 >
                   <FiTrash2 />
                   <span>Delete</span>
@@ -548,64 +548,91 @@ const PostDetail = () => {
                   setShowReport(!showReport);
                   setReportError(null);
                 }}
-                className="flex items-center space-x-1 text-gray-600 hover:text-red-500"
+                className="flex items-center space-x-1 text-gray-600 hover:text-red-500 text-sm"
               >
                 <FiFlag />
                 <span>Report</span>
               </button>
 
               {showReport && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border py-3 z-10">
-                  <div className="flex items-center justify-between px-4 pb-2 border-b">
-                    <p className="text-sm font-medium text-gray-700">
-                      Report this post
-                    </p>
-                    <button
-                      onClick={() => setShowReport(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <FiX className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="px-4 py-2 space-y-3">
-                    {reportError && (
-                      <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-xs text-red-600">{reportError}</p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowReport(false)}>
+                  <div 
+                    className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto transform transition-all"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white">
+                      <p className="text-sm font-medium text-gray-700">
+                        Report this post
+                      </p>
+                      <button
+                        onClick={() => setShowReport(false)}
+                        className="text-gray-400 hover:text-gray-600 p-1"
+                      >
+                        <FiX className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="px-4 py-4 space-y-4">
+                      {reportError && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-xs text-red-600">{reportError}</p>
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Reason <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={reportReason}
+                          onChange={(e) => {
+                            setReportReason(e.target.value);
+                            setReportError(null);
+                          }}
+                          className="w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 bg-white"
+                        >
+                          <option value="spam">Spam</option>
+                          <option value="harassment">Harassment</option>
+                          <option value="hate-speech">Hate Speech</option>
+                          <option value="violence">Violence</option>
+                          <option value="misinformation">Misinformation</option>
+                          <option value="inappropriate">Inappropriate</option>
+                          <option value="other">Other</option>
+                        </select>
                       </div>
-                    )}
-                    <select
-                      value={reportReason}
-                      onChange={(e) => {
-                        setReportReason(e.target.value);
-                        setReportError(null);
-                      }}
-                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500"
-                    >
-                      <option value="spam">Spam</option>
-                      <option value="harassment">Harassment</option>
-                      <option value="hate-speech">Hate Speech</option>
-                      <option value="violence">Violence</option>
-                      <option value="misinformation">Misinformation</option>
-                      <option value="inappropriate">Inappropriate</option>
-                      <option value="other">Other</option>
-                    </select>
-                    <textarea
-                      value={reportDescription}
-                      onChange={(e) => {
-                        setReportDescription(e.target.value);
-                        setReportError(null);
-                      }}
-                      placeholder="Additional details (optional)..."
-                      className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 resize-none"
-                      rows="2"
-                      maxLength={500}
-                    />
-                    <button
-                      onClick={handleReport}
-                      className="w-full bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-                    >
-                      Submit Report
-                    </button>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Additional details (optional)
+                        </label>
+                        <textarea
+                          value={reportDescription}
+                          onChange={(e) => {
+                            setReportDescription(e.target.value);
+                            setReportError(null);
+                          }}
+                          placeholder="Provide more context about why you're reporting this post..."
+                          className="w-full px-3 py-2.5 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 resize-none"
+                          rows="4"
+                          maxLength={500}
+                        />
+                        <p className="text-xs text-gray-400 mt-1 text-right">
+                          {reportDescription.length}/500
+                        </p>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={() => setShowReport(false)}
+                          className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleReport}
+                          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <FiFlag className="w-4 h-4" />
+                          Submit Report
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -615,41 +642,40 @@ const PostDetail = () => {
       </article>
 
       {/* Comments Section */}
-      <div className="mt-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-          <FiMessageCircle className="mr-2" />
+      <div className="mt-6 sm:mt-8">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 flex items-center">
+          <FiMessageCircle className="mr-2 w-5 h-5" />
           Comments ({post.commentCount || 0})
         </h2>
 
         {/* Comment Form */}
         {user && canInteract && (
-          <form onSubmit={handleCommentSubmit} className="card mb-6">
-            <div className="flex items-start space-x-3">
+          <form onSubmit={handleCommentSubmit} className="card mb-4 sm:mb-6">
+            <div className="flex gap-3">
+              {/* Avatar */}
               <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-bold text-primary-600">
                   {user.displayName?.charAt(0) || 'A'}
                 </span>
               </div>
-              <div className="flex-1">
+              {/* Input */}
+              <div className="flex-1 min-w-0">
                 <textarea
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Write a comment..."
-                  className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary-500 resize-none"
                   rows="3"
                   maxLength={2000}
                 />
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-sm text-gray-500">
-                    {commentText.length}/2000
-                  </span>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-gray-400">{commentText.length}/2000</span>
                   <button
                     type="submit"
                     disabled={!commentText.trim() || isLoading}
-                    className="btn btn-primary flex items-center space-x-2 disabled:opacity-50"
+                    className="btn btn-primary text-sm py-1.5 px-3"
                   >
-                    <FiSend className="w-4 h-4" />
-                    <span>Post Comment</span>
+                    Post
                   </button>
                 </div>
               </div>
@@ -658,11 +684,11 @@ const PostDetail = () => {
         )}
 
         {/* Comments List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {comments.length === 0 ? (
-            <div className="card text-center py-8">
-              <FiMessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-600">No comments yet. Be the first to comment!</p>
+            <div className="card text-center py-6">
+              <FiMessageCircle className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No comments yet. Be the first!</p>
             </div>
           ) : (
             comments.map((comment) => {
@@ -670,69 +696,61 @@ const PostDetail = () => {
               const canDeleteComment = isCommentAuthor || user?.isAdmin;
 
               return (
-                <div key={comment._id} className="card">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-gray-600">
-                          {comment.displayName?.charAt(0) || 'A'}
+                <div key={comment._id} className="card p-4">
+                  {/* Header: Avatar, Name, Date */}
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-gray-600">
+                        {comment.displayName?.charAt(0) || 'A'}
+                      </span>
+                    </div>
+                    
+                    {/* Name and Date */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-sm font-medium ${comment.author?.isPremium ? 'text-yellow-600' : 'text-gray-800'}`}>
+                          {comment.displayName || 'Anonymous'}
                         </span>
+                        {comment.author?.isPremium && <FiStar className="w-3 h-3 fill-yellow-500 text-yellow-500" />}
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500">{formatCommentDate(comment.createdAt)}</span>
                       </div>
-                      <div>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className={`font-medium text-sm ${comment.author?.isPremium ? 'text-yellow-600' : 'text-gray-800'}`}>
-                            {comment.displayName || 'Anonymous'}
-                            {comment.author?.isPremium && (
-                              <FiStar className="inline w-3 h-3 ml-0.5 fill-yellow-500" />
-                            )}
-                          </span>
-                          <span className="text-xs text-gray-500">{comment.anonId}</span>
-                          <span className="text-xs text-gray-400">•</span>
-                          <span className="text-xs text-gray-500">{formatCommentDate(comment.createdAt)}</span>
-                        </div>
-                        <p className="text-gray-700 text-sm whitespace-pre-wrap">{comment.content}</p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <button
-                            onClick={() => handleCommentLike(comment._id)}
-                            disabled={!user}
-                            className={`flex items-center space-x-1 text-sm ${
-                              comment.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                            } ${!user ? 'cursor-not-allowed opacity-50' : ''}`}
-                          >
-                            <FiHeart className={comment.isLiked ? 'fill-current' : ''} />
-                            <span>{comment.likeCount || 0}</span>
-                          </button>
-                        </div>
+                      
+                      {/* Comment Content */}
+                      <p className="text-gray-700 text-sm mt-1 break-words">{comment.content}</p>
+                      
+                      {/* Actions */}
+                      <div className="flex items-center gap-3 mt-2">
+                        <button
+                          onClick={() => handleCommentLike(comment._id)}
+                          disabled={!user}
+                          className={`flex items-center gap-1 text-xs ${
+                            comment.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                          } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <FiHeart className={comment.isLiked ? 'fill-current w-3 h-3' : 'w-3 h-3'} />
+                          {comment.likeCount || 0}
+                        </button>
                       </div>
                     </div>
-
+                    
+                    {/* Delete Button */}
                     {canDeleteComment && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowCommentMenu(showCommentMenu === comment._id ? null : comment._id)}
-                          className="text-gray-400 hover:text-gray-600 p-1"
-                        >
-                          <FiMoreVertical className="w-4 h-4" />
-                        </button>
-                        {showCommentMenu === comment._id && (
-                          <div className="absolute right-0 mt-1 w-32 bg-white rounded-lg shadow-lg border py-1 z-10">
-                            <button
-                              onClick={() => handleCommentDelete(comment._id)}
-                              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
-                            >
-                              <FiTrash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => handleCommentDelete(comment._id)}
+                        className="text-gray-400 hover:text-red-500 p-1 flex-shrink-0"
+                        title="Delete comment"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
               );
             })
           )}
-      </div>
+        </div>
       </div>
 
       {/* Toast Notification */}

@@ -120,7 +120,9 @@ const competitionSlice = createSlice({
       .addCase(createCompetition.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isSuccess = true;
-        state.competitions.unshift(action.payload);
+        // Handle both nested competition object and flat object
+        const competition = action.payload.competition || action.payload;
+        state.competitions.unshift(competition);
         state.message = 'Competition created successfully!';
       })
       .addCase(createCompetition.rejected, (state, action) => {

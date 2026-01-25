@@ -103,7 +103,7 @@ const Navbar = () => {
                     Create Post
                   </Link>
                   <div className="relative group">
-                    <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600">
+                    <button className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 -mb-4 pb-4">
                       <FiUser />
                       <span>{user.anonId}</span>
                       {isPremium && (
@@ -113,7 +113,7 @@ const Navbar = () => {
                         </span>
                       )}
                     </button>
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 hidden group-hover:block z-50">
+                    <div className="absolute right-0 mt-0 pt-4 w-56 bg-white rounded-lg shadow-lg py-2 hidden group-hover:block z-50">
                       <div className="px-4 py-2 text-sm text-gray-500 border-b">
                         {user.email}
                       </div>

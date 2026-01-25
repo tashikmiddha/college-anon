@@ -1,7 +1,10 @@
 import { withRetry, handleError, parseErrorMessage } from '../../utils/errorHandler.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-const API_URL = API_BASE_URL ? `${API_BASE_URL}/api/auth` : '/api/auth';
+// Strip trailing /api from VITE_API_URL if present, then add /api back
+const API_URL = API_BASE_URL 
+  ? `${API_BASE_URL.replace(/\/api\/?$/, '')}/api/auth` 
+  : '/api/auth';
 
 // Configure retry behavior
 const MAX_RETRIES = 3;

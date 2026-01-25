@@ -33,8 +33,9 @@ server {
     }
 
     # Backend API proxy - forward /api requests to Node.js backend
+    # IMPORTANT: Remove trailing slash from proxy_pass to preserve /api prefix
     location /api {
-        proxy_pass http://localhost:5001;
+        proxy_pass http://localhost:5001$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

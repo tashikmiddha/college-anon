@@ -57,6 +57,13 @@ router.delete('/:id', deleteCompetition);
 // Report competition (protect already applied globally)
 router.post('/:id/report', reportCompetition);
 
+// Admin routes - must be before regular routes to avoid conflict
+// Get all competitions for admin (includes all colleges, inactive)
+router.get('/admin/all', admin, getAllCompetitionsAdmin);
+
+// Update competition (admin only)
+router.put('/:id', admin, updateCompetition);
+
 // Hard delete competition (admin only - permanently removes from database)
 router.delete('/:id/hard-delete', admin, async (req, res) => {
   try {
@@ -78,13 +85,6 @@ router.delete('/:id/hard-delete', admin, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-// Admin routes - must be after regular routes
-// Update competition (admin only)
-router.put('/:id', admin, updateCompetition);
-
-// Get all competitions for admin (includes all colleges, inactive)
-router.get('/admin/all', admin, getAllCompetitionsAdmin);
 
 export default router;
 

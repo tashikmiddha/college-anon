@@ -25,8 +25,18 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, Postman)
     if(!origin) return callback(null, true);
     
-    //Allow your EC2 frontend domain/IP
+    // Allow your EC2 frontend domain/IP
     if(origin.includes('43.205.207.103') || origin.includes('amazonaws.com')) {
+      return callback(null, true);
+    }
+    
+    // Allow collegeanon.me domain and its subdomains
+    if(origin.includes('collegeanon.me')) {
+      return callback(null, true);
+    }
+    
+    // Allow from environment variable FRONTEND_URL (supports Vercel preview URLs)
+    if(config.frontendUrl && origin.includes(new URL(config.frontendUrl).hostname)) {
       return callback(null, true);
     }
     
